@@ -28,6 +28,12 @@ const BASE_CHART = [
   { time: 16.15, key: 3 }, { time: 16.4, key: 4 }, { time: 16.9, key: 0 }, { time: 16.9, key: 7 },
 ];
 
+const DEMO_PHASE = {
+  title: "Fase demo",
+  artist: "OctoBeat",
+  notes: BASE_CHART,
+};
+
 const blankStats = {
   score: 0,
   combo: 0,
@@ -58,6 +64,38 @@ function createChart(difficulty) {
   }
 
   return BASE_CHART.map((note) => ({ ...note }));
+}
+
+function normalizeNotes(notes) {
+  if (!Array.isArray(notes)) return [];
+
+  return notes
+    .map((note) => ({
+      time: Number(note?.time),
+      key: Number(note?.key),
+    }))
+    .filter((note) => Number.isFinite(note.time) && Number.isInteger(note.key) && note.time >= 0 && note.key >= 0 && note.key < KEYS.length)
+    .sort((a, b) => a.time - b.time || a.key - b.key);
+}
+
+function makePlayableNotes(chart) {
+  return normalizeNotes(chart).map((note, id) => ({ ...note, id, y: -40, hit: false, missed: false }));
+}
+
+function parsePhaseJson(text) {
+  const data = JSON.parse(text);
+  const rawNotes = Array.isArray(data) ? data : data?.notes;
+  const notes = normalizeNotes(rawNotes);
+
+  if (!notes.length) {
+    throw new Error("O JSON nao possui notas validas.");
+  }
+
+  return {
+    title: typeof data?.title === "string" && data.title.trim() ? data.title.trim() : "Fase importada",
+    artist: typeof data?.artist === "string" && data.artist.trim() ? data.artist.trim() : "Artista desconhecido",
+    notes,
+  };
 }
 
 function judge(delta) {
@@ -105,9 +143,16 @@ export default function App() {
   const [view, setView] = useState("game");
   const [difficulty, setDifficulty] = useState("normal");
   const [playing, setPlaying] = useState(false);
-  const [notes, setNotes] = useState(() => createChart("normal").map((note, id) => ({ ...note, id, y: -40, hit: false, missed: false })));
+  const [phase, setPhase] = useState(() => ({ ...DEMO_PHASE, notes: createChart("normal") }));
+  const [phaseSource, setPhaseSource] = useState("demo");
+  const [phaseStatus, setPhaseStatus] = useState("Fase demo carregada");
+  const [gameAudioUrl, setGameAudioUrl] = useState("");
+  const [gameAudioName, setGameAudioName] = useState("Musica demo sintetizada");
+  const [notes, setNotes] = useState(() => makePlayableNotes(createChart("normal")));
   const [pressedLane, setPressedLane] = useState(null);
   const [stats, setStats] = useState(blankStats);
+  const [editorTitle, setEditorTitle] = useState("");
+  const [editorArtist, setEditorArtist] = useState("");
   const [editorAudioUrl, setEditorAudioUrl] = useState("");
   const [editorAudioName, setEditorAudioName] = useState("Nenhum audio carregado");
   const [editorRecording, setEditorRecording] = useState(false);
@@ -115,6 +160,7 @@ export default function App() {
   const [flashingEditorLane, setFlashingEditorLane] = useState(null);
 
   const trackRef = useRef(null);
+  const gameAudioRef = useRef(null);
   const editorAudioRef = useRef(null);
   const animationRef = useRef(0);
   const startAtRef = useRef(0);
@@ -125,7 +171,12 @@ export default function App() {
   const editorRecordingRef = useRef(false);
 
   const accuracy = stats.total ? `${Math.round((stats.hits / stats.total) * 100)}%` : "0%";
-  const chartOutput = useMemo(() => JSON.stringify(editorChart, null, 2), [editorChart]);
+  const editorPhase = useMemo(() => ({
+    title: editorTitle.trim() || editorAudioName.replace(/\.[^/.]+$/, "") || "Fase OctoBeat",
+    artist: editorArtist.trim() || "Artista desconhecido",
+    notes: editorChart,
+  }), [editorArtist, editorAudioName, editorTitle, editorChart]);
+  const chartOutput = useMemo(() => JSON.stringify(editorPhase, null, 2), [editorPhase]);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -150,17 +201,24 @@ export default function App() {
     audioNodesRef.current = [];
   }, []);
 
-  const buildNotes = useCallback((mode = difficulty) => {
-    const chart = createChart(mode);
-    const nextNotes = chart.map((note, id) => ({ ...note, id, y: -40, hit: false, missed: false }));
+  const stopGameAudio = useCallback(() => {
+    if (gameAudioRef.current) {
+      gameAudioRef.current.pause();
+      gameAudioRef.current.currentTime = 0;
+    }
+  }, []);
+
+  const buildNotes = useCallback((chart = phase.notes) => {
+    const nextNotes = makePlayableNotes(chart);
     setNotes(nextNotes);
     notesRef.current = nextNotes;
     return nextNotes;
-  }, [difficulty]);
+  }, [phase.notes]);
 
   const resetGame = useCallback((keepReady = true) => {
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
+    stopGameAudio();
     setPlaying(false);
     playingRef.current = false;
     setStats(blankStats);
@@ -170,7 +228,7 @@ export default function App() {
       setNotes([]);
       notesRef.current = [];
     }
-  }, [buildNotes, stopDemoSong]);
+  }, [buildNotes, stopDemoSong, stopGameAudio]);
 
   const startDemoSong = useCallback((chart) => {
     if (!audioContextRef.current) {
@@ -207,7 +265,7 @@ export default function App() {
     const trackHeight = trackRef.current?.clientHeight ?? 600;
     const hitY = trackHeight - 76;
     const fallDuration = 1.55;
-    const time = nowSeconds() - startAtRef.current;
+    const time = gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
     let missedCount = 0;
     let finished = false;
 
@@ -242,6 +300,7 @@ export default function App() {
 
     const lastNote = notesRef.current.at(-1);
     if (finished && lastNote && time > lastNote.time + 0.5) {
+      stopGameAudio();
       setPlaying(false);
       playingRef.current = false;
       setStats((current) => ({ ...current, judgement: "Fim" }));
@@ -249,17 +308,39 @@ export default function App() {
     }
 
     animationRef.current = requestAnimationFrame(tick);
-  }, []);
+  }, [gameAudioUrl, stopGameAudio]);
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback(async () => {
     resetGame(false);
-    const nextNotes = buildNotes();
+    const nextNotes = buildNotes(phase.notes);
+    if (!nextNotes.length) {
+      setStats((current) => ({ ...current, judgement: "Sem notas" }));
+      setPhaseStatus("Carregue uma fase com notas validas.");
+      return;
+    }
+
     setStats(blankStats);
+    stopGameAudio();
+    stopDemoSong();
+
+    if (gameAudioUrl && gameAudioRef.current) {
+      gameAudioRef.current.currentTime = 0;
+      try {
+        await gameAudioRef.current.play();
+      } catch {
+        setStats((current) => ({ ...current, judgement: "Audio bloqueado" }));
+        setPhaseStatus("O navegador bloqueou o audio. Tente clicar em Iniciar novamente.");
+        return;
+      }
+      startAtRef.current = nowSeconds();
+    } else {
+      startDemoSong(nextNotes);
+    }
+
     setPlaying(true);
     playingRef.current = true;
-    startDemoSong(nextNotes);
     animationRef.current = requestAnimationFrame(tick);
-  }, [buildNotes, resetGame, startDemoSong, tick]);
+  }, [buildNotes, gameAudioUrl, phase.notes, resetGame, startDemoSong, stopDemoSong, stopGameAudio, tick]);
 
   const recordEditorNote = useCallback((lane) => {
     const time = Number(editorAudioRef.current?.currentTime.toFixed(3));
@@ -281,7 +362,7 @@ export default function App() {
 
     if (!playingRef.current) return;
 
-    const time = nowSeconds() - startAtRef.current;
+    const time = gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
     const candidates = notesRef.current
       .filter((note) => !note.hit && !note.missed && note.key === lane)
       .map((note) => ({ note, delta: time - note.time }))
@@ -316,7 +397,7 @@ export default function App() {
         judgement: result.label,
       };
     });
-  }, [recordEditorNote, view]);
+  }, [gameAudioUrl, recordEditorNote, view]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -333,23 +414,67 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pressLane]);
 
-  useEffect(() => {
-    return () => {
-      cancelAnimationFrame(animationRef.current);
-      stopDemoSong();
-      if (editorAudioUrl) URL.revokeObjectURL(editorAudioUrl);
-    };
-  }, [editorAudioUrl, stopDemoSong]);
+  useEffect(() => () => {
+    cancelAnimationFrame(animationRef.current);
+    stopDemoSong();
+    stopGameAudio();
+  }, [stopDemoSong, stopGameAudio]);
+
+  useEffect(() => () => {
+    if (gameAudioUrl) URL.revokeObjectURL(gameAudioUrl);
+  }, [gameAudioUrl]);
+
+  useEffect(() => () => {
+    if (editorAudioUrl) URL.revokeObjectURL(editorAudioUrl);
+  }, [editorAudioUrl]);
 
   function changeDifficulty(event) {
     const nextDifficulty = event.target.value;
+    const nextPhase = { ...DEMO_PHASE, notes: createChart(nextDifficulty) };
     setDifficulty(nextDifficulty);
+    setPhase(nextPhase);
+    setPhaseSource("demo");
+    setPhaseStatus("Fase demo carregada");
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
+    stopGameAudio();
     setPlaying(false);
     playingRef.current = false;
     setStats(blankStats);
-    buildNotes(nextDifficulty);
+    buildNotes(nextPhase.notes);
+  }
+
+  function loadGameAudio(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (gameAudioUrl) URL.revokeObjectURL(gameAudioUrl);
+    setGameAudioUrl(URL.createObjectURL(file));
+    setGameAudioName(file.name);
+    setPhaseStatus("Audio local carregado");
+    resetGame(true);
+  }
+
+  async function loadPhaseJson(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const nextPhase = parsePhaseJson(await file.text());
+      cancelAnimationFrame(animationRef.current);
+      stopDemoSong();
+      stopGameAudio();
+      setPlaying(false);
+      playingRef.current = false;
+      setPhase(nextPhase);
+      setPhaseSource("json");
+      setPhaseStatus(`${nextPhase.notes.length} notas importadas de ${file.name}`);
+      setStats(blankStats);
+      buildNotes(nextPhase.notes);
+    } catch (error) {
+      setPhaseStatus(error instanceof Error ? error.message : "Nao foi possivel importar o JSON.");
+      setStats((current) => ({ ...current, judgement: "JSON invalido" }));
+    }
   }
 
   function loadEditorAudio(event) {
@@ -359,6 +484,9 @@ export default function App() {
     if (editorAudioUrl) URL.revokeObjectURL(editorAudioUrl);
     setEditorAudioUrl(URL.createObjectURL(file));
     setEditorAudioName(file.name);
+    if (!editorTitle.trim()) {
+      setEditorTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
   }
 
   function startEditorRecording() {
@@ -377,16 +505,18 @@ export default function App() {
   }
 
   function exportEditorJson() {
-    const blob = new Blob([JSON.stringify(editorChart, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(editorPhase, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "octobeat-fase.json";
+    anchor.download = `${editorPhase.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "octobeat-fase"}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
 
   const editorStatus = editorRecording ? "Gravando" : editorChart.length ? `${editorChart.length} notas gravadas` : editorAudioName;
+  const phaseSubtitle = phaseSource === "demo" ? "Demo interna" : `${phase.artist} - ${phase.notes.length} notas`;
+  const usingLocalAudio = Boolean(gameAudioUrl);
 
   return (
     <main className="app-shell">
@@ -429,6 +559,32 @@ export default function App() {
             </label>
           </div>
 
+          <div className="phase-panel">
+            <div className="phase-copy">
+              <strong>{phase.title}</strong>
+              <span>{phaseSubtitle}</span>
+              <span>{phaseStatus}</span>
+              <span>{usingLocalAudio ? gameAudioName : "Sem audio local: usando musica demo sintetizada"}</span>
+            </div>
+            <div className="phase-actions">
+              <label className="file-button">
+                Fase JSON
+                <input type="file" accept="application/json,.json" onChange={loadPhaseJson} />
+              </label>
+              <label className="file-button">
+                Audio local
+                <input type="file" accept="audio/*" onChange={loadGameAudio} />
+              </label>
+            </div>
+            <audio className="game-audio" ref={gameAudioRef} src={gameAudioUrl} controls={usingLocalAudio} onEnded={() => {
+              if (playingRef.current) {
+                setPlaying(false);
+                playingRef.current = false;
+                setStats((current) => ({ ...current, judgement: "Fim" }));
+              }
+            }}></audio>
+          </div>
+
           <div className="track" ref={trackRef} aria-label="Pista de notas">
             {KEYS.map((key, lane) => (
               <div className={`lane ${pressedLane === lane ? "is-pressed" : ""}`} key={key.label}>
@@ -459,6 +615,17 @@ export default function App() {
             <label className="file-button">
               Audio
               <input type="file" accept="audio/*" onChange={loadEditorAudio} />
+            </label>
+          </div>
+
+          <div className="editor-meta">
+            <label>
+              Nome da fase
+              <input value={editorTitle} onChange={(event) => setEditorTitle(event.target.value)} placeholder="Fase OctoBeat" />
+            </label>
+            <label>
+              Artista
+              <input value={editorArtist} onChange={(event) => setEditorArtist(event.target.value)} placeholder="Artista desconhecido" />
             </label>
           </div>
 
