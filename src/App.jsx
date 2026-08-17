@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { importSong } from "./music/importSong.js";
+import { generateChart } from "./chart/generateChart.js";
+import { normalizeNotes } from "./game/normalizeNotes.js";
+import { judgeNote } from "./game/judgeNote.js";
 
 const KEYS = [
   { label: "A", values: ["a"], color: "#ff6860" },
@@ -66,18 +70,6 @@ function createChart(difficulty) {
   return BASE_CHART.map((note) => ({ ...note }));
 }
 
-function normalizeNotes(notes) {
-  if (!Array.isArray(notes)) return [];
-
-  return notes
-    .map((note) => ({
-      time: Number(note?.time),
-      key: Number(note?.key),
-    }))
-    .filter((note) => Number.isFinite(note.time) && Number.isInteger(note.key) && note.time >= 0 && note.key >= 0 && note.key < KEYS.length)
-    .sort((a, b) => a.time - b.time || a.key - b.key);
-}
-
 function makePlayableNotes(chart) {
   return normalizeNotes(chart).map((note, id) => ({ ...note, id, y: -40, hit: false, missed: false }));
 }
@@ -96,14 +88,6 @@ function parsePhaseJson(text) {
     artist: typeof data?.artist === "string" && data.artist.trim() ? data.artist.trim() : "Artista desconhecido",
     notes,
   };
-}
-
-function judge(delta) {
-  const absolute = Math.abs(delta);
-  if (absolute <= 0.055) return { label: "Perfeito", score: 1000 };
-  if (absolute <= 0.115) return { label: "Bom", score: 650 };
-  if (absolute <= 0.18) return { label: delta > 0 ? "Atrasado" : "Cedo", score: 300 };
-  return null;
 }
 
 function scheduleTone(context, nodes, start, duration, frequency, type, gainValue) {
@@ -158,6 +142,10 @@ export default function App() {
   const [editorRecording, setEditorRecording] = useState(false);
   const [editorChart, setEditorChart] = useState([]);
   const [flashingEditorLane, setFlashingEditorLane] = useState(null);
+  const [importedSong, setImportedSong] = useState(null);
+  const [selectedTrackIds, setSelectedTrackIds] = useState([]);
+  const [songStatus, setSongStatus] = useState("Importe um MIDI ou MusicXML para gerar um chart.");
+  const [songLoading, setSongLoading] = useState(false);
 
   const trackRef = useRef(null);
   const gameAudioRef = useRef(null);
@@ -380,7 +368,7 @@ export default function App() {
     }
 
     const { note, delta } = candidates[0];
-    const result = judge(delta);
+    const result = judgeNote(delta);
     if (!result) return;
 
     const nextNotes = notesRef.current.map((item) => item.id === note.id ? { ...item, hit: true } : item);
@@ -430,8 +418,23 @@ export default function App() {
 
   function changeDifficulty(event) {
     const nextDifficulty = event.target.value;
-    const nextPhase = { ...DEMO_PHASE, notes: createChart(nextDifficulty) };
     setDifficulty(nextDifficulty);
+    if (importedSong) {
+      const nextNotes = generateChart(importedSong, { trackIds: selectedTrackIds, difficulty: nextDifficulty });
+      const nextPhase = { title: importedSong.title, artist: importedSong.artist, difficulty: nextDifficulty, notes: nextNotes };
+      setPhase(nextPhase);
+      setPhaseSource("song");
+      setPhaseStatus(`${nextNotes.length} notas geradas (${nextDifficulty})`);
+      cancelAnimationFrame(animationRef.current);
+      stopDemoSong();
+      stopGameAudio();
+      setPlaying(false);
+      playingRef.current = false;
+      setStats(blankStats);
+      buildNotes(nextNotes);
+      return;
+    }
+    const nextPhase = { ...DEMO_PHASE, notes: createChart(nextDifficulty) };
     setPhase(nextPhase);
     setPhaseSource("demo");
     setPhaseStatus("Fase demo carregada");
@@ -477,6 +480,52 @@ export default function App() {
     }
   }
 
+  async function loadSymbolicSong(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSongLoading(true);
+    setSongStatus("Interpretando a música...");
+    try {
+      const song = await importSong(file);
+      const ids = song.tracks.filter((track) => track.notes.length).map((track) => track.id);
+      setImportedSong(song);
+      setSelectedTrackIds(ids);
+      setSongStatus(`${song.source.format} reconhecido: ${song.tracks.length} tracks e ${song.tracks.reduce((total, track) => total + track.notes.length, 0)} notas.`);
+    } catch (error) {
+      setImportedSong(null);
+      setSelectedTrackIds([]);
+      setSongStatus(error instanceof Error ? error.message : "Não foi possível importar a música.");
+    } finally {
+      setSongLoading(false);
+      event.target.value = "";
+    }
+  }
+
+  function toggleSongTrack(id) {
+    setSelectedTrackIds((current) => current.includes(id) ? current.filter((trackId) => trackId !== id) : [...current, id]);
+  }
+
+  function generateImportedPhase() {
+    if (!importedSong) return;
+    const chart = generateChart(importedSong, { trackIds: selectedTrackIds, difficulty });
+    if (!chart.length) {
+      setSongStatus("Selecione ao menos uma track com notas para gerar o chart.");
+      return;
+    }
+    const nextPhase = { title: importedSong.title, artist: importedSong.artist, difficulty, notes: chart };
+    setPhase(nextPhase);
+    setPhaseSource("song");
+    setPhaseStatus(`${chart.length} notas geradas de ${selectedTrackIds.length} track(s).`);
+    cancelAnimationFrame(animationRef.current);
+    stopDemoSong();
+    stopGameAudio();
+    setPlaying(false);
+    playingRef.current = false;
+    setStats(blankStats);
+    buildNotes(chart);
+    setView("game");
+  }
+
   function loadEditorAudio(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -505,11 +554,15 @@ export default function App() {
   }
 
   function exportEditorJson() {
-    const blob = new Blob([JSON.stringify(editorPhase, null, 2)], { type: "application/json" });
+    downloadPhase(editorPhase);
+  }
+
+  function downloadPhase(value) {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${editorPhase.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "octobeat-fase"}.json`;
+    anchor.download = `${value.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "octobeat-fase"}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -575,6 +628,7 @@ export default function App() {
                 Audio local
                 <input type="file" accept="audio/*" onChange={loadGameAudio} />
               </label>
+              {phaseSource === "song" && <button className="ghost-action" onClick={() => downloadPhase(phase)}>Exportar JSON</button>}
             </div>
             <audio className="game-audio" ref={gameAudioRef} src={gameAudioUrl} controls={usingLocalAudio} onEnded={() => {
               if (playingRef.current) {
@@ -609,14 +663,28 @@ export default function App() {
         <section className={`editor-wrap ${view === "editor" ? "is-visible" : ""}`} aria-label="Editor de fases">
           <div className="editor-header">
             <div>
-              <h2>Editor</h2>
-              <p>{editorStatus}</p>
+              <h2>Importador e editor</h2>
+              <p>{importedSong ? songStatus : editorStatus}</p>
             </div>
             <label className="file-button">
               Audio
               <input type="file" accept="audio/*" onChange={loadEditorAudio} />
             </label>
           </div>
+
+          <section className="song-importer" aria-label="Importação de música simbólica">
+            <div className="importer-heading">
+              <div>
+                <h3>Gerar chart de MIDI ou MusicXML</h3>
+                <p>{songStatus}</p>
+              </div>
+              <label className="file-button">
+                {songLoading ? "Lendo..." : "MIDI / MusicXML"}
+                <input type="file" accept=".mid,.midi,.musicxml,.xml,application/xml" onChange={loadSymbolicSong} disabled={songLoading} />
+              </label>
+            </div>
+            {importedSong && <SongInspector song={importedSong} selectedTrackIds={selectedTrackIds} onToggle={toggleSongTrack} onGenerate={generateImportedPhase} />}
+          </section>
 
           <div className="editor-meta">
             <label>
@@ -663,6 +731,32 @@ function Metric({ label, value }) {
     <div className="metric">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SongInspector({ song, selectedTrackIds, onToggle, onGenerate }) {
+  const notes = song.tracks.flatMap((track) => track.notes);
+  const pitches = notes.map((note) => note.pitch);
+  const firstBpm = song.tempoChanges[0]?.bpm ?? 120;
+  return (
+    <div className="song-inspector">
+      <div className="song-metrics">
+        <span><b>Formato</b>{song.source?.format}</span>
+        <span><b>Duração</b>{song.duration.toFixed(1)}s</span>
+        <span><b>BPM</b>{Math.round(firstBpm)}{song.tempoChanges.length > 1 ? ` (+${song.tempoChanges.length - 1})` : ""}</span>
+        <span><b>Pitch</b>{Math.min(...pitches)}–{Math.max(...pitches)}</span>
+      </div>
+      <div className="track-list">
+        {song.tracks.map((track) => (
+          <label className="song-track" key={track.id}>
+            <input type="checkbox" checked={selectedTrackIds.includes(track.id)} onChange={() => onToggle(track.id)} disabled={!track.notes.length} />
+            <span><b>{track.name}</b><small>{track.instrument} · {track.notes.length} notas</small></span>
+          </label>
+        ))}
+      </div>
+      <button className="primary-action" onClick={onGenerate} disabled={!selectedTrackIds.length}>Gerar chart e jogar</button>
+      <details><summary>Primeiras notas interpretadas</summary><code>{JSON.stringify(notes.slice(0, 12), null, 2)}</code></details>
     </div>
   );
 }

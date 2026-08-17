@@ -34,6 +34,7 @@ Em teclados sem `Ç`, a ultima coluna tambem aceita `;`.
 - Audio local no jogo para tocar fases importadas.
 - Dificuldades leve, normal e rapida.
 - Editor manual com upload de audio, gravacao de teclas no tempo da musica e exportacao JSON com metadados.
+- Importador MIDI (`.mid`/`.midi`) e MusicXML (`.musicxml`/`.xml`), com seleção de tracks e geração de chart em 8 lanes.
 
 ## Formato de fase
 
@@ -64,6 +65,16 @@ O jogo tambem aceita temporariamente o formato antigo:
 `time` e o momento em segundos. `key` e a coluna, de `0` a `7`.
 
 ## Fluxo de fase real
+
+### A partir de MIDI ou MusicXML
+
+1. Abra o modo `Editor`.
+2. Em `Gerar chart de MIDI ou MusicXML`, escolha o arquivo.
+3. Confira os metadados e marque as tracks que devem entrar no chart.
+4. Escolha a dificuldade no modo `Jogo` e clique em `Gerar chart e jogar`.
+5. Opcionalmente associe um áudio local e exporte o JSON da fase.
+
+### Gravação manual
 
 1. Abra o modo `Editor`.
 2. Carregue um audio local.
