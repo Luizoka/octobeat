@@ -10,6 +10,9 @@ import { analyzeSong } from "./music-analysis/analyzeSong.js";
 import { selectGameplayTracks } from "./music-analysis/selectGameplayTracks.js";
 import { calculateChartMetrics } from "./music-analysis/chartMetrics.js";
 import { adaptNotesForHands } from "./game/adaptNotesForHands.js";
+import demoMidiUrl from "../Deltarune - vs Susie - MIDI by LukeeGD.mid?url";
+
+const DEMO_MIDI_NAME = "Deltarune - vs Susie - MIDI by LukeeGD.mid";
 
 const KEYS = [
   { label: "A", values: ["a"], color: "#ff6860" },
@@ -548,13 +551,11 @@ export default function App() {
     resetGame(true);
   }
 
-  async function loadSymbolicSong(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function importSymbolicFile(file) {
     stopMidiAudio();
     midiPausedPositionRef.current = 0;
     setSongLoading(true);
-    setSongStatus("Interpretando a música...");
+    setSongStatus(`Interpretando ${file.name}...`);
     try {
       const song = await importSong(file);
       const report = analyzeSong(song);
@@ -579,7 +580,28 @@ export default function App() {
       setSongStatus(error instanceof Error ? error.message : "Não foi possível importar a música.");
     } finally {
       setSongLoading(false);
-      event.target.value = "";
+    }
+  }
+
+  async function loadSymbolicSong(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    await importSymbolicFile(file);
+  }
+
+  async function loadDemoMidi() {
+    if (songLoading) return;
+    setSongLoading(true);
+    setSongStatus("Baixando a música de exemplo...");
+    try {
+      const response = await fetch(demoMidiUrl);
+      if (!response.ok) throw new Error("Não foi possível carregar a música de exemplo.");
+      const file = new File([await response.blob()], DEMO_MIDI_NAME, { type: "audio/midi" });
+      await importSymbolicFile(file);
+    } catch (error) {
+      setSongStatus(error instanceof Error ? error.message : "Não foi possível carregar a música de exemplo.");
+      setSongLoading(false);
     }
   }
 
@@ -707,10 +729,15 @@ export default function App() {
             <span className="eyebrow">COMECE POR AQUI</span>
             <h2>Transforme um MIDI ou MusicXML em uma fase.</h2>
             <p>O OctoBeat procura tracks de piano primeiro. Você pode manter somente a mão/melodia desejada antes de gerar as 8 teclas.</p>
-            <label className="primary-action music-file-button">
-              {songLoading ? "Lendo a música..." : "Escolher MIDI / MusicXML"}
-              <input type="file" accept=".mid,.midi,.musicxml,.xml,application/xml" onChange={loadSymbolicSong} disabled={songLoading} />
-            </label>
+            <div className="music-entry-actions">
+              <label className="primary-action music-file-button">
+                {songLoading ? "Lendo a música..." : "Escolher MIDI / MusicXML"}
+                <input type="file" accept=".mid,.midi,.musicxml,.xml,application/xml" onChange={loadSymbolicSong} disabled={songLoading} />
+              </label>
+              <button className="ghost-action demo-song-action" type="button" onClick={loadDemoMidi} disabled={songLoading}>
+                {songLoading ? "Aguarde..." : "▶ Testar: Deltarune — vs Susie"}
+              </button>
+            </div>
             <small>Formatos aceitos: .mid, .midi, .musicxml e .xml (MusicXML).</small>
           </div>
           {importedSong && <SongInspector song={importedSong} analysis={songAnalysis} gameplaySourceMode={gameplaySourceMode} onGameplaySourceMode={setGameplaySourceMode} selectedTrackIds={selectedTrackIds} audioTrackIds={audioTrackIds} audioMode={audioMode} audioStatus={midiAudioStatus} previewPlaying={midiPreviewPlaying} midiBusy={midiBusy} masterVolume={masterVolume} onMasterVolume={setMasterVolume} onToggle={toggleSongTrack} onToggleAudio={toggleAudioTrack} onMode={setAudioMode} onPreview={previewMidi} onStopPreview={stopMidiPreview} onGenerate={generateImportedPhase} />}

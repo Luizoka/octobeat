@@ -295,6 +295,22 @@ button {
   display: none;
 }
 
+.music-entry-actions {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.demo-song-action {
+  min-height: 50px;
+  border-color: rgba(255, 95, 126, 0.4);
+}
+
+.demo-song-action:hover {
+  border-color: var(--coral);
+}
+
 .music-wrap > .song-inspector,
 .import-status {
   max-width: 690px;
