@@ -85,22 +85,6 @@ function makePlayableNotes(chart) {
   return normalizeNotes(chart).map((note, id) => ({ ...note, id, y: -40, hit: false, missed: false }));
 }
 
-function parsePhaseJson(text) {
-  const data = JSON.parse(text);
-  const rawNotes = Array.isArray(data) ? data : data?.notes;
-  const notes = normalizeNotes(rawNotes);
-
-  if (!notes.length) {
-    throw new Error("O JSON nao possui notas validas.");
-  }
-
-  return {
-    title: typeof data?.title === "string" && data.title.trim() ? data.title.trim() : "Fase importada",
-    artist: typeof data?.artist === "string" && data.artist.trim() ? data.artist.trim() : "Artista desconhecido",
-    notes,
-  };
-}
-
 function scheduleTone(context, nodes, start, duration, frequency, type, gainValue) {
   const oscillator = context.createOscillator();
   const gain = context.createGain();
@@ -146,13 +130,6 @@ export default function App() {
   const [notes, setNotes] = useState(() => makePlayableNotes(createChart("normal")));
   const [pressedLanes, setPressedLanes] = useState([]);
   const [stats, setStats] = useState(blankStats);
-  const [editorTitle, setEditorTitle] = useState("");
-  const [editorArtist, setEditorArtist] = useState("");
-  const [editorAudioUrl, setEditorAudioUrl] = useState("");
-  const [editorAudioName, setEditorAudioName] = useState("Nenhum audio carregado");
-  const [editorRecording, setEditorRecording] = useState(false);
-  const [editorChart, setEditorChart] = useState([]);
-  const [flashingEditorLane, setFlashingEditorLane] = useState(null);
   const [importedSong, setImportedSong] = useState(null);
   const [selectedTrackIds, setSelectedTrackIds] = useState([]);
   const [songStatus, setSongStatus] = useState("Importe um MIDI ou MusicXML para gerar um chart.");
@@ -170,28 +147,21 @@ export default function App() {
 
   const trackRef = useRef(null);
   const gameAudioRef = useRef(null);
-  const editorAudioRef = useRef(null);
   const animationRef = useRef(0);
   const startAtRef = useRef(0);
   const playingRef = useRef(false);
   const notesRef = useRef(notes);
   const audioContextRef = useRef(null);
   const audioNodesRef = useRef([]);
-  const editorRecordingRef = useRef(false);
   const midiPlayerRef = useRef(null);
   const chordInputRef = useRef(null);
   const midiBusyRef = useRef(false);
   const midiOperationRef = useRef(0);
   const midiPausedPositionRef = useRef(0);
   const startSequenceRef = useRef(0);
+  const phaseSourceRef = useRef("demo");
 
   const accuracy = stats.total ? `${Math.round((stats.hits / stats.total) * 100)}%` : "0%";
-  const editorPhase = useMemo(() => ({
-    title: editorTitle.trim() || editorAudioName.replace(/\.[^/.]+$/, "") || "Fase OctoBeat",
-    artist: editorArtist.trim() || "Artista desconhecido",
-    notes: editorChart,
-  }), [editorArtist, editorAudioName, editorTitle, editorChart]);
-  const chartOutput = useMemo(() => JSON.stringify(editorPhase, null, 2), [editorPhase]);
   const songAnalysis = useMemo(() => importedSong ? analyzeSong(importedSong) : null, [importedSong]);
 
   useEffect(() => {
@@ -201,10 +171,6 @@ export default function App() {
   useEffect(() => {
     playingRef.current = playing;
   }, [playing]);
-
-  useEffect(() => {
-    editorRecordingRef.current = editorRecording;
-  }, [editorRecording]);
 
   useEffect(() => {
     if (gameAudioRef.current) gameAudioRef.current.volume = masterVolume;
@@ -352,7 +318,7 @@ export default function App() {
     const trackHeight = trackRef.current?.clientHeight ?? 600;
     const hitY = trackHeight - 76;
     const fallDuration = 1.55;
-    const time = phaseSource === "song" && midiPlayerRef.current?.playing ? midiPlayerRef.current.currentTime() : gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
+    const time = phaseSourceRef.current === "song" && midiPlayerRef.current?.playing ? midiPlayerRef.current.currentTime() : gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
     let missedCount = 0;
     let finished = false;
 
@@ -398,11 +364,12 @@ export default function App() {
     animationRef.current = requestAnimationFrame(tick);
   }, [gameAudioUrl, phaseSource, stopGameAudio, stopMidiAudio]);
 
-  const startGame = useCallback(async () => {
+  const startGame = useCallback(async ({ chart = phase.notes, source = phaseSource } = {}) => {
     if (midiBusyRef.current || countdown !== null) return;
     resetGame(false);
+    phaseSourceRef.current = source;
     const startSequence = startSequenceRef.current;
-    const nextNotes = buildNotes(phase.notes);
+    const nextNotes = buildNotes(chart);
     if (!nextNotes.length) {
       setStats((current) => ({ ...current, judgement: "Sem notas" }));
       setPhaseStatus("Carregue uma fase com notas validas.");
@@ -414,7 +381,7 @@ export default function App() {
     stopDemoSong();
     stopMidiAudio();
 
-    if (phaseSource === "song" && importedSong?.source?.format === "MIDI") {
+    if (source === "song" && importedSong?.source?.format === "MIDI") {
       try {
         const started = await playMidi(0, () => waitForCountdown(startSequence));
         if (!started) return;
@@ -452,27 +419,13 @@ export default function App() {
     animationRef.current = requestAnimationFrame(tick);
   }, [buildNotes, countdown, gameAudioUrl, importedSong, phase.notes, phaseSource, playMidi, resetGame, startDemoSong, stopDemoSong, stopGameAudio, stopMidiAudio, tick, waitForCountdown]);
 
-  const recordEditorNote = useCallback((lane) => {
-    const time = Number(editorAudioRef.current?.currentTime.toFixed(3));
-    if (!Number.isFinite(time)) return;
-
-    setEditorChart((current) => [...current, { time, key: lane }].sort((a, b) => a.time - b.time || a.key - b.key));
-    setFlashingEditorLane(lane);
-    window.setTimeout(() => setFlashingEditorLane(null), 110);
-  }, []);
-
   const pressLane = useCallback((lane) => {
     setPressedLanes((current) => current.includes(lane) ? current : [...current, lane]);
     window.setTimeout(() => setPressedLanes((current) => current.filter((item) => item !== lane)), 90);
 
-    if (view === "editor" && editorRecordingRef.current) {
-      recordEditorNote(lane);
-      return;
-    }
-
     if (!playingRef.current) return;
 
-    const time = phaseSource === "song" && midiPlayerRef.current?.playing ? midiPlayerRef.current.currentTime() : gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
+    const time = phaseSourceRef.current === "song" && midiPlayerRef.current?.playing ? midiPlayerRef.current.currentTime() : gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
     const candidates = notesRef.current
       .filter((note) => !note.hit && !note.missed && note.key === lane)
       .map((note) => ({ note, delta: time - note.time }))
@@ -515,7 +468,7 @@ export default function App() {
         judgement: result.label,
       };
     });
-  }, [gameAudioUrl, phaseSource, recordEditorNote, view]);
+  }, [gameAudioUrl]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -543,10 +496,6 @@ export default function App() {
     if (gameAudioUrl) URL.revokeObjectURL(gameAudioUrl);
   }, [gameAudioUrl]);
 
-  useEffect(() => () => {
-    if (editorAudioUrl) URL.revokeObjectURL(editorAudioUrl);
-  }, [editorAudioUrl]);
-
   function changeDifficulty(event) {
     const nextDifficulty = event.target.value;
     setDifficulty(nextDifficulty);
@@ -557,6 +506,7 @@ export default function App() {
       const nextPhase = { title: importedSong.title, artist: importedSong.artist, difficulty: nextDifficulty, gameplayMode: gameplaySourceMode, gameplayTrackIds: selection.trackIds, chartMetrics: calculateChartMetrics(nextNotes, importedSong.duration, sourceNames), notes: nextNotes };
       setPhase(nextPhase);
       setPhaseSource("song");
+      phaseSourceRef.current = "song";
       setPhaseStatus(`${nextNotes.length} notas · ${gameplaySourceMode === "essence" ? "Essência" : gameplaySourceMode === "piano" ? "Piano" : "Personalizado"} · ${sourceNames.join(", ")}`);
       cancelAnimationFrame(animationRef.current);
       stopDemoSong();
@@ -570,6 +520,7 @@ export default function App() {
     const nextPhase = { ...DEMO_PHASE, notes: createChart(nextDifficulty) };
     setPhase(nextPhase);
     setPhaseSource("demo");
+    phaseSourceRef.current = "demo";
     setPhaseStatus("Fase demo carregada");
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
@@ -595,28 +546,6 @@ export default function App() {
     setGameAudioName(file.name);
     setPhaseStatus("Audio local carregado");
     resetGame(true);
-  }
-
-  async function loadPhaseJson(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const nextPhase = parsePhaseJson(await file.text());
-      cancelAnimationFrame(animationRef.current);
-      stopDemoSong();
-      stopGameAudio();
-      setPlaying(false);
-      playingRef.current = false;
-      setPhase(nextPhase);
-      setPhaseSource("json");
-      setPhaseStatus(`${nextPhase.notes.length} notas importadas de ${file.name}`);
-      setStats(blankStats);
-      buildNotes(nextPhase.notes);
-    } catch (error) {
-      setPhaseStatus(error instanceof Error ? error.message : "Nao foi possivel importar o JSON.");
-      setStats((current) => ({ ...current, judgement: "JSON invalido" }));
-    }
   }
 
   async function loadSymbolicSong(event) {
@@ -709,7 +638,7 @@ export default function App() {
     animationRef.current = requestAnimationFrame(tick);
   }
 
-  function generateImportedPhase() {
+  async function generateImportedPhase() {
     if (!importedSong) return;
     const selection = selectGameplayTracks(importedSong, { mode: gameplaySourceMode, customTrackIds: selectedTrackIds, analysis: songAnalysis });
     const chart = generateChart(importedSong, { trackIds: selection.trackIds, difficulty });
@@ -730,6 +659,7 @@ export default function App() {
     };
     setPhase(nextPhase);
     setPhaseSource("song");
+    phaseSourceRef.current = "song";
     setPhaseStatus(`${chart.length} notas · ${gameplaySourceMode === "essence" ? "Essência" : gameplaySourceMode === "piano" ? "Piano" : "Personalizado"} · ${sourceNames.join(", ")}`);
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
@@ -739,57 +669,15 @@ export default function App() {
     setPlaying(false);
     playingRef.current = false;
     setStats(blankStats);
-    buildNotes(chart);
     setView("game");
+    await startGame({ chart, source: "song" });
   }
 
-  function loadEditorAudio(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (editorAudioUrl) URL.revokeObjectURL(editorAudioUrl);
-    setEditorAudioUrl(URL.createObjectURL(file));
-    setEditorAudioName(file.name);
-    if (!editorTitle.trim()) {
-      setEditorTitle(file.name.replace(/\.[^/.]+$/, ""));
-    }
-  }
-
-  function startEditorRecording() {
-    if (!editorAudioRef.current || !editorAudioUrl) return;
-
-    setEditorRecording(true);
-    editorRecordingRef.current = true;
-    editorAudioRef.current.currentTime = 0;
-    editorAudioRef.current.play();
-  }
-
-  function stopEditorRecording() {
-    setEditorRecording(false);
-    editorRecordingRef.current = false;
-    editorAudioRef.current?.pause();
-  }
-
-  function exportEditorJson() {
-    downloadPhase(editorPhase);
-  }
-
-  function downloadPhase(value) {
-    const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${value.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "octobeat-fase"}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  const editorStatus = editorRecording ? "Gravando" : editorChart.length ? `${editorChart.length} notas gravadas` : editorAudioName;
   const phaseSubtitle = phaseSource === "demo" ? "Demo interna" : `${phase.artist} - ${phase.notes.length} notas`;
   const usingLocalAudio = Boolean(gameAudioUrl);
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell view-${view}`}>
       <section className="topbar" aria-label="Controles principais">
         <div className="brand">
           <img className="octo-mark" src={octoLogo} alt="Mascote OctoBeat" />
@@ -802,7 +690,6 @@ export default function App() {
         <div className="view-tabs" role="tablist" aria-label="Modo">
           <button className={`tab ${view === "music" ? "is-active" : ""}`} onClick={() => setView("music")} role="tab" aria-selected={view === "music"}>Música</button>
           <button className={`tab ${view === "game" ? "is-active" : ""}`} onClick={() => setView("game")} role="tab" aria-selected={view === "game"}>Jogo</button>
-          <button className={`tab ${view === "editor" ? "is-active" : ""}`} onClick={() => setView("editor")} role="tab" aria-selected={view === "editor"}>Editor</button>
           <button className={`tab ${view === "settings" ? "is-active" : ""}`} onClick={() => setView("settings")} role="tab" aria-selected={view === "settings"}>Configurações</button>
         </div>
       </section>
@@ -859,8 +746,7 @@ export default function App() {
         <section className={`stage-wrap ${view === "game" ? "is-visible" : ""}`} aria-label="Jogo">
           <div className="stage-toolbar">
             <div className="playback-controls">
-              <button className="primary-action" onClick={startGame} disabled={midiBusy || countdown !== null}>{countdown ? `Começando em ${countdown}` : midiBusy ? "Carregando instrumentos..." : playing ? "↻ Reiniciar" : "▶ Iniciar"}</button>
-              <button className="ghost-action" onClick={() => resetGame(true)}>↻ Reiniciar</button>
+              <button className="primary-action" onClick={() => startGame()} disabled={midiBusy || countdown !== null}>{countdown ? `Começando em ${countdown}` : midiBusy ? "Carregando instrumentos..." : playing ? "↻ Reiniciar" : "▶ Iniciar"}</button>
             {phaseSource === "song" && importedSong?.source?.format === "MIDI" && <>
                 <button className="ghost-action" onClick={toggleMidiGamePause} disabled={midiBusy}>{playing ? "⏸ Pausar" : "▶ Continuar"}</button>
                 <button className="ghost-action stop-action" onClick={() => resetGame(true)}>■ Parar</button>
@@ -929,53 +815,6 @@ export default function App() {
           </div>
         </section>
 
-        <section className={`editor-wrap ${view === "editor" ? "is-visible" : ""}`} aria-label="Editor de fases">
-          <div className="editor-header">
-            <div>
-              <h2>Importador e editor</h2>
-              <p>{importedSong ? songStatus : editorStatus}</p>
-            </div>
-            <label className="file-button">
-              Audio
-              <input type="file" accept="audio/*" onChange={loadEditorAudio} />
-            </label>
-          </div>
-
-          <div className="editor-meta">
-            <label>
-              Nome da fase
-              <input value={editorTitle} onChange={(event) => setEditorTitle(event.target.value)} placeholder="Fase OctoBeat" />
-            </label>
-            <label>
-              Artista
-              <input value={editorArtist} onChange={(event) => setEditorArtist(event.target.value)} placeholder="Artista desconhecido" />
-            </label>
-          </div>
-
-          <audio ref={editorAudioRef} src={editorAudioUrl} controls onEnded={stopEditorRecording}></audio>
-
-          <div className="editor-actions">
-            <button className="primary-action" onClick={startEditorRecording} disabled={!editorAudioUrl || editorRecording}>Gravar</button>
-            <button className="ghost-action" onClick={stopEditorRecording} disabled={!editorRecording}>Parar</button>
-            <button className="ghost-action" onClick={() => setEditorChart([])} disabled={!editorChart.length}>Limpar</button>
-            <button className="ghost-action" onClick={exportEditorJson} disabled={!editorChart.length}>Exportar JSON</button>
-          </div>
-
-          <div className="record-lanes" aria-label="Teclas gravadas">
-            {KEYS.map((key, lane) => (
-              <button
-                className={flashingEditorLane === lane ? "is-flash" : ""}
-                disabled={!editorRecording}
-                key={key.label}
-                onClick={() => recordEditorNote(lane)}
-              >
-                {key.label}
-              </button>
-            ))}
-          </div>
-
-          <textarea value={chartOutput} readOnly spellCheck="false" aria-label="JSON da fase"></textarea>
-        </section>
       </section>
     </main>
   );
@@ -1023,18 +862,24 @@ function SongInspector({ song, analysis, gameplaySourceMode, onGameplaySourceMod
         <label><input type="radio" name="gameplay-source" value="essence" checked={gameplaySourceMode === "essence"} onChange={(event) => onGameplaySourceMode(event.target.value)} /> Essência da música <small>recomendado</small></label>
         <label><input type="radio" name="gameplay-source" value="custom" checked={gameplaySourceMode === "custom"} onChange={(event) => onGameplaySourceMode(event.target.value)} /> Personalizado</label>
       </div>
-      <div className="track-list track-list-detailed">
-        {musicalTracks.map((track) => {
-          const trackAnalysis = analysisById.get(track.id);
-          return <label className={`song-track ${trackAnalysis?.suspicious ? "is-suspicious" : ""} ${track.id === essenceId ? "is-essence" : ""}`} key={track.id}>
-            <input type="checkbox" checked={audioTrackIds.includes(track.id)} onChange={() => onToggleAudio(track.id)} disabled={!track.notes.length} title="Ouvir" />
-            <input type="checkbox" checked={isCheckedForGameplay(track)} onChange={() => onToggle(track.id)} disabled={trackAnalysis?.suspicious} title={trackAnalysis?.suspicious ? "Track suspeita: bloqueada na seleção automática" : "Jogar"} />
-            <span><b>{track.name}{track.id === essenceId && <em> Essência</em>}{trackAnalysis?.suspicious && <em className="warning"> Suspeita</em>}</b><small>{track.family} · {track.instrument} · {track.notes.length} notas · {(trackAnalysis?.notesPerSecond ?? 0).toFixed(1)} NPS</small></span>
-          </label>;
-        })}
+      <div className="quick-play-panel">
+        <div><strong>Pronto para jogar</strong><span>A sugestão automática já está configurada. As opções abaixo são ajustes avançados.</span></div>
+        <button className="primary-action play-now-action" onClick={onGenerate} disabled={midiBusy}>{midiBusy ? "Preparando..." : "▶ Jogar agora"}</button>
       </div>
-      <div className="track-legend"><span>1º checkbox: Ouvir</span><span>2º checkbox: Jogar</span></div>
-      <button className="primary-action" onClick={onGenerate}>Gerar chart e abrir o jogo</button>
+      <details className="track-selection">
+        <summary>Personalizar instrumentos e tracks</summary>
+        <div className="track-list track-list-detailed">
+          {musicalTracks.map((track) => {
+            const trackAnalysis = analysisById.get(track.id);
+            return <label className={`song-track ${trackAnalysis?.suspicious ? "is-suspicious" : ""} ${track.id === essenceId ? "is-essence" : ""}`} key={track.id}>
+              <input type="checkbox" checked={audioTrackIds.includes(track.id)} onChange={() => onToggleAudio(track.id)} disabled={!track.notes.length} title="Ouvir" />
+              <input type="checkbox" checked={isCheckedForGameplay(track)} onChange={() => onToggle(track.id)} disabled={trackAnalysis?.suspicious} title={trackAnalysis?.suspicious ? "Track suspeita: bloqueada na seleção automática" : "Jogar"} />
+              <span><b>{track.name}{track.id === essenceId && <em> Essência</em>}{trackAnalysis?.suspicious && <em className="warning"> Suspeita</em>}</b><small>{track.family} · {track.instrument} · {track.notes.length} notas · {(trackAnalysis?.notesPerSecond ?? 0).toFixed(1)} NPS</small></span>
+            </label>;
+          })}
+        </div>
+        <div className="track-legend"><span>1º checkbox: Ouvir</span><span>2º checkbox: Jogar</span></div>
+      </details>
       <details className="analysis-panel">
         <summary>Mostrar análise avançada ({analysis?.candidates.length ?? 0} candidatas)</summary>
         <div className="analysis-ranking">

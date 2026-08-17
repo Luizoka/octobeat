@@ -565,6 +565,25 @@ details {
 .gameplay-source input { accent-color: var(--coral); }
 .gameplay-source small { color: var(--cyan); }
 
+.quick-play-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid rgba(39, 217, 209, 0.42);
+  border-radius: 10px;
+  background: rgba(39, 217, 209, 0.07);
+}
+
+.quick-play-panel > div { display: grid; gap: 4px; }
+.quick-play-panel span { color: var(--muted); font-size: 0.84rem; }
+.play-now-action { min-width: 170px; min-height: 48px; }
+.track-selection { padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: #0e1525; }
+.track-selection summary { cursor: pointer; color: var(--text); font-weight: 750; }
+.track-selection .track-list { margin-top: 11px; }
+.track-selection .track-legend { margin-top: 8px; }
+
 .song-track em {
   margin-left: 5px;
   padding: 2px 5px;
@@ -975,4 +994,113 @@ textarea {
   .score-panel::before { grid-column: 1 / -1; }
   .settings-grid { grid-template-columns: 1fr; }
   .setting-card-wide { grid-column: auto; }
+}
+
+/* No jogo, a pista define a altura da tela e nunca empurra as teclas para baixo. */
+@media (min-width: 1001px) {
+  .app-shell.view-game {
+    height: 100dvh;
+    min-height: 680px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .view-game .topbar {
+    min-height: 62px;
+    margin-bottom: 10px;
+  }
+
+  .view-game .octo-mark {
+    width: 58px;
+    height: 58px;
+  }
+
+  .view-game .brand h1 {
+    font-size: 2rem;
+  }
+
+  .view-game .screen-grid {
+    height: calc(100dvh - 92px);
+    min-height: 588px;
+  }
+
+  .view-game .score-panel {
+    max-height: 100%;
+    overflow: auto;
+  }
+
+  .view-game .stage-wrap.is-visible {
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    padding: 12px;
+    overflow: hidden;
+    flex-direction: column;
+  }
+
+  .view-game .stage-toolbar {
+    flex: 0 0 auto;
+    min-height: 40px;
+    margin-bottom: 8px;
+  }
+
+  .view-game .phase-panel {
+    flex: 0 0 auto;
+    min-height: 0;
+    margin-bottom: 10px;
+    padding: 9px 12px;
+  }
+
+  .view-game .phase-copy {
+    gap: 2px;
+  }
+
+  .view-game .phase-copy strong {
+    font-size: 1rem;
+  }
+
+  .view-game .song-summary,
+  .view-game .song-status,
+  .view-game .audio-status,
+  .view-game .chart-metrics {
+    font-size: 0.73rem;
+    line-height: 1.15;
+  }
+
+  .view-game .track {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1001px) and (max-height: 760px) {
+  .app-shell.view-game {
+    min-height: 600px;
+  }
+
+  .view-game .topbar {
+    min-height: 50px;
+    margin-bottom: 7px;
+  }
+
+  .view-game .octo-mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .view-game .brand p {
+    display: none;
+  }
+
+  .view-game .screen-grid {
+    height: calc(100dvh - 77px);
+    min-height: 523px;
+  }
+
+  .view-game .phase-panel {
+    margin-bottom: 7px;
+    padding-block: 7px;
+  }
 }
