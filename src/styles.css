@@ -169,7 +169,8 @@ button {
 .score-panel,
 .stage-wrap,
 .editor-wrap,
-.music-wrap {
+.music-wrap,
+.settings-wrap {
   border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
@@ -206,7 +207,8 @@ button {
 
 .stage-wrap,
 .editor-wrap,
-.music-wrap {
+.music-wrap,
+.settings-wrap {
   display: none;
   min-width: 0;
   border-radius: 8px;
@@ -215,7 +217,8 @@ button {
 
 .stage-wrap.is-visible,
 .editor-wrap.is-visible,
-.music-wrap.is-visible {
+.music-wrap.is-visible,
+.settings-wrap.is-visible {
   display: block;
 }
 
@@ -223,6 +226,26 @@ button {
   min-height: 610px;
   padding: clamp(22px, 5vw, 64px);
 }
+
+.settings-wrap {
+  min-height: 610px;
+  padding: clamp(24px, 4vw, 54px);
+}
+
+.settings-header { max-width: 680px; margin-bottom: 24px; }
+.settings-header h2 { margin: 8px 0 5px; font-size: clamp(1.55rem, 3vw, 2.3rem); }
+.settings-header p, .setting-card p { margin: 0; color: var(--muted); }
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.setting-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 120px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: #10182a; }
+.setting-card p { margin-top: 5px; font-size: 0.84rem; line-height: 1.45; }
+.setting-card-wide { grid-column: 1 / -1; align-items: flex-start; flex-direction: column; }
+.hand-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; width: 100%; }
+.hand-options label { display: grid; gap: 4px; padding: 13px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--panel); cursor: pointer; }
+.hand-options label.is-selected { border-color: var(--cyan); background: rgba(39, 217, 209, 0.08); }
+.hand-options input { position: absolute; opacity: 0; }
+.hand-options b { color: var(--text); }
+.hand-options small { font-family: ui-monospace, monospace; }
+.settings-volume input { width: min(220px, 30vw); }
 
 .music-hero {
   display: grid;
@@ -815,6 +838,56 @@ textarea {
 .playback-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 .stage-toolbar > .select-label { margin-left: auto; }
 
+.volume-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+  font-size: 0.82rem;
+}
+
+.volume-control input { width: 104px; accent-color: var(--cyan); cursor: pointer; }
+.volume-control b { min-width: 34px; color: var(--text); font-size: 0.76rem; text-align: right; }
+
+.midi-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(39, 217, 209, 0.42);
+  border-radius: 8px;
+  background: rgba(39, 217, 209, 0.08);
+}
+
+.midi-loading div { display: grid; gap: 2px; }
+.midi-loading small { color: var(--muted); }
+.loading-spinner {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  border: 2px solid rgba(39, 217, 209, 0.22);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: loading-spin 700ms linear infinite;
+}
+
+.inline-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--cyan);
+  font-size: 0.8rem;
+}
+
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+
 .primary-action, .ghost-action, .file-button {
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
@@ -836,11 +909,25 @@ textarea {
 .audio-status { color: var(--cyan) !important; }
 
 .track {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 30px repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 14px repeat(4, minmax(0, 1fr));
   height: min(74vh, 790px);
   min-height: 540px;
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(39, 217, 209, 0.035), transparent 32%), #0b1020;
+}
+
+.track::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 7px);
+  z-index: 1;
+  width: 14px;
+  border-left: 1px solid rgba(255, 95, 126, 0.16);
+  border-right: 1px solid rgba(39, 217, 209, 0.16);
+  background: #080d19;
+  pointer-events: none;
 }
 
 .lane-0, .lane-2, .lane-5, .lane-7 { background: rgba(16, 24, 42, 0.52); }
@@ -859,29 +946,33 @@ textarea {
 }
 .lane.is-pressed span { background: var(--cyan); box-shadow: 0 1px 0 #168b87; transform: translateX(-50%) translateY(4px); }
 
-.hand-label {
-  position: absolute;
-  top: 14px;
-  z-index: 3;
-  color: rgba(170, 180, 200, 0.55);
-  font-size: 0.67rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-.hand-label-left { left: 18px; }
-.hand-label-right { left: calc(50% + 24px); }
-
 .hit-line { height: 3px; background: var(--cyan); box-shadow: 0 0 12px rgba(39, 217, 209, 0.35); }
 .note {
-  left: calc(((100% - 30px) / 8) * var(--lane) + var(--hand-offset) + 8px);
-  width: calc(((100% - 30px) / 8) - 16px);
+  z-index: 2;
+  left: calc(((100% - 14px) / 8) * var(--lane) + var(--hand-offset) + 8px);
+  width: calc(((100% - 14px) / 8) - 16px);
   height: 30px;
   border-radius: 8px;
 }
+
+.countdown-mini { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: var(--bg); font-weight: 900; background: var(--cyan); }
+.countdown-overlay { position: absolute; inset: 0; z-index: 10; display: grid; place-content: center; justify-items: center; gap: 8px; background: rgba(11, 16, 32, 0.72); backdrop-filter: blur(2px); pointer-events: none; }
+.countdown-overlay strong { color: var(--cyan); font-size: clamp(4rem, 12vw, 9rem); line-height: 0.9; text-shadow: 0 5px 24px rgba(39, 217, 209, 0.18); }
+.countdown-overlay span { color: var(--text); font-weight: 750; }
+
+.hand-mode-left .lane-4,
+.hand-mode-left .lane-5,
+.hand-mode-left .lane-6,
+.hand-mode-left .lane-7,
+.hand-mode-right .lane-0,
+.hand-mode-right .lane-1,
+.hand-mode-right .lane-2,
+.hand-mode-right .lane-3 { opacity: 0.28; }
 
 @media (max-width: 1000px) {
   .screen-grid { grid-template-columns: 1fr; }
   .score-panel { position: static; grid-template-columns: repeat(4, 1fr); }
   .score-panel::before { grid-column: 1 / -1; }
+  .settings-grid { grid-template-columns: 1fr; }
+  .setting-card-wide { grid-column: auto; }
 }

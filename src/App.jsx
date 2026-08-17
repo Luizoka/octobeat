@@ -9,6 +9,7 @@ import octoLogo from "./images/logo_semfundo.png";
 import { analyzeSong } from "./music-analysis/analyzeSong.js";
 import { selectGameplayTracks } from "./music-analysis/selectGameplayTracks.js";
 import { calculateChartMetrics } from "./music-analysis/chartMetrics.js";
+import { adaptNotesForHands } from "./game/adaptNotesForHands.js";
 
 const KEYS = [
   { label: "A", values: ["a"], color: "#ff6860" },
@@ -54,6 +55,10 @@ const blankStats = {
 
 function nowSeconds() {
   return performance.now() / 1000;
+}
+
+function loadSetting(key, fallback) {
+  try { return localStorage.getItem(`octobeat.${key}`) ?? fallback; } catch { return fallback; }
 }
 
 function keyToLane(event) {
@@ -112,7 +117,7 @@ function scheduleTone(context, nodes, start, duration, frequency, type, gainValu
   nodes.current.push(oscillator);
 }
 
-function scheduleNoise(context, nodes, start) {
+function scheduleNoise(context, nodes, start, volume = 1) {
   const buffer = context.createBuffer(1, context.sampleRate * 0.05, context.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < data.length; i += 1) {
@@ -122,7 +127,7 @@ function scheduleNoise(context, nodes, start) {
   const noise = context.createBufferSource();
   const gain = context.createGain();
   noise.buffer = buffer;
-  gain.gain.setValueAtTime(0.11, start);
+  gain.gain.setValueAtTime(0.11 * volume, start);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.045);
   noise.connect(gain).connect(context.destination);
   noise.start(start);
@@ -157,6 +162,11 @@ export default function App() {
   const [midiAudioStatus, setMidiAudioStatus] = useState("Áudio MIDI será carregado automaticamente ao tocar.");
   const [midiPreviewPlaying, setMidiPreviewPlaying] = useState(false);
   const [gameplaySourceMode, setGameplaySourceMode] = useState("essence");
+  const [midiBusy, setMidiBusy] = useState(false);
+  const [masterVolume, setMasterVolume] = useState(() => Number(loadSetting("masterVolume", "0.7")));
+  const [leadInSeconds, setLeadInSeconds] = useState(() => Number(loadSetting("leadInSeconds", "2")));
+  const [handMode, setHandMode] = useState(() => loadSetting("handMode", "both"));
+  const [countdown, setCountdown] = useState(null);
 
   const trackRef = useRef(null);
   const gameAudioRef = useRef(null);
@@ -170,6 +180,10 @@ export default function App() {
   const editorRecordingRef = useRef(false);
   const midiPlayerRef = useRef(null);
   const chordInputRef = useRef(null);
+  const midiBusyRef = useRef(false);
+  const midiOperationRef = useRef(0);
+  const midiPausedPositionRef = useRef(0);
+  const startSequenceRef = useRef(0);
 
   const accuracy = stats.total ? `${Math.round((stats.hits / stats.total) * 100)}%` : "0%";
   const editorPhase = useMemo(() => ({
@@ -192,6 +206,19 @@ export default function App() {
     editorRecordingRef.current = editorRecording;
   }, [editorRecording]);
 
+  useEffect(() => {
+    if (gameAudioRef.current) gameAudioRef.current.volume = masterVolume;
+    midiPlayerRef.current?.setMasterVolume(masterVolume);
+  }, [masterVolume]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("octobeat.leadInSeconds", String(leadInSeconds));
+      localStorage.setItem("octobeat.handMode", handMode);
+      localStorage.setItem("octobeat.masterVolume", String(masterVolume));
+    } catch { /* Preferências continuam válidas apenas nesta sessão. */ }
+  }, [handMode, leadInSeconds, masterVolume]);
+
   const stopDemoSong = useCallback(() => {
     audioNodesRef.current.forEach((node) => {
       try {
@@ -213,33 +240,71 @@ export default function App() {
   const stopMidiAudio = useCallback(() => {
     // Notas do SoundFont são agendadas no futuro. Descartar o contexto é a forma
     // confiável de cancelar também esses eventos, antes de uma nova execução.
+    midiOperationRef.current += 1;
+    midiBusyRef.current = false;
+    setMidiBusy(false);
     midiPlayerRef.current?.dispose();
     midiPlayerRef.current = null;
   }, []);
 
-  const playMidi = useCallback(async (position = 0) => {
+  const waitForCountdown = useCallback(async (sequence) => {
+    if (leadInSeconds <= 0) return sequence === startSequenceRef.current;
+    for (let remaining = leadInSeconds; remaining > 0; remaining -= 1) {
+      if (sequence !== startSequenceRef.current) return false;
+      setCountdown(remaining);
+      setMidiAudioStatus(`Prepare-se: começando em ${remaining}...`);
+      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    }
+    if (sequence !== startSequenceRef.current) return false;
+    setCountdown("VAI!");
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    if (sequence !== startSequenceRef.current) return false;
+    setCountdown(null);
+    return true;
+  }, [leadInSeconds]);
+
+  const playMidi = useCallback(async (position = 0, beforePlay) => {
+    if (midiBusyRef.current) return false;
     if (!importedSong || importedSong.source?.format !== "MIDI") throw new Error("A reprodução integrada está disponível para MIDI.");
+    const operation = ++midiOperationRef.current;
+    midiBusyRef.current = true;
+    setMidiBusy(true);
     if (!midiPlayerRef.current || midiPlayerRef.current.song !== importedSong) {
       midiPlayerRef.current?.dispose();
       midiPlayerRef.current = new MidiPlayer(importedSong, { onStatus: setMidiAudioStatus });
     }
-    await midiPlayerRef.current.prepare(audioTrackIds, audioMode);
-    midiPlayerRef.current.setMix(audioMode);
-    await midiPlayerRef.current.play(position);
-  }, [audioMode, audioTrackIds, importedSong]);
+    const player = midiPlayerRef.current;
+    try {
+      await player.prepare(audioTrackIds, audioMode);
+      if (operation !== midiOperationRef.current || player !== midiPlayerRef.current) return false;
+      if (beforePlay && !await beforePlay()) return false;
+      player.setMasterVolume(masterVolume);
+      player.setMix(audioMode);
+      await player.play(position);
+      return true;
+    } finally {
+      if (operation === midiOperationRef.current) {
+        midiBusyRef.current = false;
+        setMidiBusy(false);
+      }
+    }
+  }, [audioMode, audioTrackIds, importedSong, masterVolume]);
 
   const buildNotes = useCallback((chart = phase.notes) => {
-    const nextNotes = makePlayableNotes(chart);
+    const nextNotes = makePlayableNotes(adaptNotesForHands(chart, handMode));
     setNotes(nextNotes);
     notesRef.current = nextNotes;
     return nextNotes;
-  }, [phase.notes]);
+  }, [handMode, phase.notes]);
 
   const resetGame = useCallback((keepReady = true) => {
+    startSequenceRef.current += 1;
+    setCountdown(null);
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
     stopGameAudio();
     stopMidiAudio();
+    midiPausedPositionRef.current = 0;
     setMidiPreviewPlaying(false);
     setPlaying(false);
     playingRef.current = false;
@@ -269,17 +334,17 @@ export default function App() {
 
     for (let beat = 0; beat < 36; beat += 1) {
       const time = start + beat * 0.5;
-      scheduleTone(context, audioNodesRef, time, 0.08, beat % 4 === 0 ? 98 : 130.81, "triangle", 0.08);
+      scheduleTone(context, audioNodesRef, time, 0.08, beat % 4 === 0 ? 98 : 130.81, "triangle", 0.08 * masterVolume);
       if (beat % 2 === 1) {
-        scheduleNoise(context, audioNodesRef, time + 0.02);
+        scheduleNoise(context, audioNodesRef, time + 0.02, masterVolume);
       }
     }
 
     chart.forEach((note, index) => {
       const frequency = scale[note.key] * (index % 3 === 0 ? 0.5 : 1);
-      scheduleTone(context, audioNodesRef, start + note.time, 0.11, frequency, "square", 0.045);
+      scheduleTone(context, audioNodesRef, start + note.time, 0.11, frequency, "square", 0.045 * masterVolume);
     });
-  }, [stopDemoSong]);
+  }, [masterVolume, stopDemoSong]);
 
   const tick = useCallback(() => {
     if (!playingRef.current) return;
@@ -334,7 +399,9 @@ export default function App() {
   }, [gameAudioUrl, phaseSource, stopGameAudio, stopMidiAudio]);
 
   const startGame = useCallback(async () => {
+    if (midiBusyRef.current || countdown !== null) return;
     resetGame(false);
+    const startSequence = startSequenceRef.current;
     const nextNotes = buildNotes(phase.notes);
     if (!nextNotes.length) {
       setStats((current) => ({ ...current, judgement: "Sem notas" }));
@@ -349,7 +416,8 @@ export default function App() {
 
     if (phaseSource === "song" && importedSong?.source?.format === "MIDI") {
       try {
-        await playMidi(0);
+        const started = await playMidi(0, () => waitForCountdown(startSequence));
+        if (!started) return;
         setMidiPreviewPlaying(false);
       } catch (error) {
         setPhaseStatus(error instanceof Error ? error.message : "Não foi possível carregar o SoundFont.");
@@ -361,6 +429,8 @@ export default function App() {
       animationRef.current = requestAnimationFrame(tick);
       return;
     }
+
+    if (!await waitForCountdown(startSequence)) return;
 
     if (gameAudioUrl && gameAudioRef.current) {
       gameAudioRef.current.currentTime = 0;
@@ -380,7 +450,7 @@ export default function App() {
     setPlaying(true);
     playingRef.current = true;
     animationRef.current = requestAnimationFrame(tick);
-  }, [buildNotes, gameAudioUrl, importedSong, phase.notes, phaseSource, playMidi, resetGame, startDemoSong, stopDemoSong, stopGameAudio, stopMidiAudio, tick]);
+  }, [buildNotes, countdown, gameAudioUrl, importedSong, phase.notes, phaseSource, playMidi, resetGame, startDemoSong, stopDemoSong, stopGameAudio, stopMidiAudio, tick, waitForCountdown]);
 
   const recordEditorNote = useCallback((lane) => {
     const time = Number(editorAudioRef.current?.currentTime.toFixed(3));
@@ -552,6 +622,8 @@ export default function App() {
   async function loadSymbolicSong(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    stopMidiAudio();
+    midiPausedPositionRef.current = 0;
     setSongLoading(true);
     setSongStatus("Interpretando a música...");
     try {
@@ -595,14 +667,16 @@ export default function App() {
   }
 
   async function previewMidi() {
+    if (midiBusyRef.current) return;
     try {
       if (midiPlayerRef.current?.playing) {
-        midiPlayerRef.current.pause();
+        midiPausedPositionRef.current = midiPlayerRef.current.currentTime();
+        stopMidiAudio();
         setMidiAudioStatus("MIDI pausado.");
         setMidiPreviewPlaying(false);
       } else {
-        await playMidi(midiPlayerRef.current?.position ?? 0);
-        setMidiPreviewPlaying(true);
+        const started = await playMidi(midiPausedPositionRef.current);
+        if (started) setMidiPreviewPlaying(true);
       }
     } catch (error) {
       setMidiAudioStatus(error instanceof Error ? error.message : "Não foi possível tocar o MIDI.");
@@ -611,22 +685,25 @@ export default function App() {
 
   function stopMidiPreview() {
     stopMidiAudio();
+    midiPausedPositionRef.current = 0;
     setMidiPreviewPlaying(false);
     setMidiAudioStatus("MIDI parado.");
   }
 
   async function toggleMidiGamePause() {
+    if (midiBusyRef.current) return;
     const player = midiPlayerRef.current;
-    if (!player) return;
     if (playing) {
-      player.pause();
+      midiPausedPositionRef.current = player?.currentTime() ?? 0;
+      stopMidiAudio();
       cancelAnimationFrame(animationRef.current);
       setPlaying(false);
       playingRef.current = false;
       setStats((current) => ({ ...current, judgement: "Pausado" }));
       return;
     }
-    await playMidi(player.position);
+    const started = await playMidi(midiPausedPositionRef.current);
+    if (!started) return;
     setPlaying(true);
     playingRef.current = true;
     animationRef.current = requestAnimationFrame(tick);
@@ -726,6 +803,7 @@ export default function App() {
           <button className={`tab ${view === "music" ? "is-active" : ""}`} onClick={() => setView("music")} role="tab" aria-selected={view === "music"}>Música</button>
           <button className={`tab ${view === "game" ? "is-active" : ""}`} onClick={() => setView("game")} role="tab" aria-selected={view === "game"}>Jogo</button>
           <button className={`tab ${view === "editor" ? "is-active" : ""}`} onClick={() => setView("editor")} role="tab" aria-selected={view === "editor"}>Editor</button>
+          <button className={`tab ${view === "settings" ? "is-active" : ""}`} onClick={() => setView("settings")} role="tab" aria-selected={view === "settings"}>Configurações</button>
         </div>
       </section>
 
@@ -748,17 +826,43 @@ export default function App() {
             </label>
             <small>Formatos aceitos: .mid, .midi, .musicxml e .xml (MusicXML).</small>
           </div>
-          {importedSong && <SongInspector song={importedSong} analysis={songAnalysis} gameplaySourceMode={gameplaySourceMode} onGameplaySourceMode={setGameplaySourceMode} selectedTrackIds={selectedTrackIds} audioTrackIds={audioTrackIds} audioMode={audioMode} audioStatus={midiAudioStatus} previewPlaying={midiPreviewPlaying} onToggle={toggleSongTrack} onToggleAudio={toggleAudioTrack} onMode={setAudioMode} onPreview={previewMidi} onStopPreview={stopMidiPreview} onGenerate={generateImportedPhase} />}
+          {importedSong && <SongInspector song={importedSong} analysis={songAnalysis} gameplaySourceMode={gameplaySourceMode} onGameplaySourceMode={setGameplaySourceMode} selectedTrackIds={selectedTrackIds} audioTrackIds={audioTrackIds} audioMode={audioMode} audioStatus={midiAudioStatus} previewPlaying={midiPreviewPlaying} midiBusy={midiBusy} masterVolume={masterVolume} onMasterVolume={setMasterVolume} onToggle={toggleSongTrack} onToggleAudio={toggleAudioTrack} onMode={setAudioMode} onPreview={previewMidi} onStopPreview={stopMidiPreview} onGenerate={generateImportedPhase} />}
           {!importedSong && <p className="import-status">{songStatus}</p>}
+        </section>
+
+        <section className={`settings-wrap ${view === "settings" ? "is-visible" : ""}`} aria-label="Configurações de acessibilidade e jogo">
+          <div className="settings-header">
+            <span className="eyebrow">PREFERÊNCIAS</span>
+            <h2>Configure o jogo para você.</h2>
+            <p>Estas opções ficam salvas neste navegador.</p>
+          </div>
+          <div className="settings-grid">
+            <article className="setting-card">
+              <div><strong>Tempo de preparação</strong><p>Contagem antes da música e das notas começarem.</p></div>
+              <label className="select-label">Contagem <select value={leadInSeconds} onChange={(event) => setLeadInSeconds(Number(event.target.value))}><option value="0">Sem contagem</option><option value="1">1 segundo</option><option value="2">2 segundos</option><option value="3">3 segundos</option><option value="4">4 segundos</option></select></label>
+            </article>
+            <article className="setting-card setting-card-wide">
+              <div><strong>Teclas utilizadas</strong><p>O modo de uma mão redistribui o chart inteiro entre quatro teclas.</p></div>
+              <div className="hand-options">
+                <label className={handMode === "both" ? "is-selected" : ""}><input type="radio" name="hand-mode" value="both" checked={handMode === "both"} onChange={(event) => setHandMode(event.target.value)} /><b>Duas mãos</b><small>ASDF + JKLÇ</small></label>
+                <label className={handMode === "left" ? "is-selected" : ""}><input type="radio" name="hand-mode" value="left" checked={handMode === "left"} onChange={(event) => setHandMode(event.target.value)} /><b>Somente esquerda</b><small>ASDF</small></label>
+                <label className={handMode === "right" ? "is-selected" : ""}><input type="radio" name="hand-mode" value="right" checked={handMode === "right"} onChange={(event) => setHandMode(event.target.value)} /><b>Somente direita</b><small>JKLÇ</small></label>
+              </div>
+            </article>
+            <article className="setting-card">
+              <div><strong>Volume geral</strong><p>Controla a prévia MIDI e a música durante o gameplay.</p></div>
+              <label className="volume-control settings-volume"><input type="range" min="0" max="1" step="0.05" value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} /><b>{Math.round(masterVolume * 100)}%</b></label>
+            </article>
+          </div>
         </section>
 
         <section className={`stage-wrap ${view === "game" ? "is-visible" : ""}`} aria-label="Jogo">
           <div className="stage-toolbar">
             <div className="playback-controls">
-              <button className="primary-action" onClick={startGame}>{playing ? "↻ Reiniciar" : "▶ Iniciar"}</button>
+              <button className="primary-action" onClick={startGame} disabled={midiBusy || countdown !== null}>{countdown ? `Começando em ${countdown}` : midiBusy ? "Carregando instrumentos..." : playing ? "↻ Reiniciar" : "▶ Iniciar"}</button>
               <button className="ghost-action" onClick={() => resetGame(true)}>↻ Reiniciar</button>
             {phaseSource === "song" && importedSong?.source?.format === "MIDI" && <>
-                <button className="ghost-action" onClick={toggleMidiGamePause}>{playing ? "⏸ Pausar" : "▶ Continuar"}</button>
+                <button className="ghost-action" onClick={toggleMidiGamePause} disabled={midiBusy}>{playing ? "⏸ Pausar" : "▶ Continuar"}</button>
                 <button className="ghost-action stop-action" onClick={() => resetGame(true)}>■ Parar</button>
             </>}
             </div>
@@ -770,7 +874,14 @@ export default function App() {
                 <option value="hard">Rapida</option>
               </select>
             </label>
+            <label className="volume-control" title="Volume geral">
+              <span>Volume</span>
+              <input type="range" min="0" max="1" step="0.05" value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} />
+              <b>{Math.round(masterVolume * 100)}%</b>
+            </label>
           </div>
+
+          {midiBusy && <div className="midi-loading" role="status"><span className={countdown ? "countdown-mini" : "loading-spinner"}>{countdown || ""}</span><div><strong>{countdown ? "Prepare-se" : "Preparando a música"}</strong><small>{midiAudioStatus} Aguarde; não é necessário clicar novamente.</small></div></div>}
 
           <div className="phase-panel">
             <div className="phase-copy">
@@ -782,14 +893,9 @@ export default function App() {
             </div>
             <div className="phase-actions">
               <label className="file-button">
-                Fase JSON
-                <input type="file" accept="application/json,.json" onChange={loadPhaseJson} />
-              </label>
-              <label className="file-button">
                 Audio local
                 <input type="file" accept="audio/*" onChange={loadGameAudio} />
               </label>
-              {phaseSource === "song" && <button className="ghost-action" onClick={() => downloadPhase(phase)}>Exportar JSON</button>}
             </div>
             <audio className="game-audio" ref={gameAudioRef} src={gameAudioUrl} controls={usingLocalAudio} onEnded={() => {
               if (playingRef.current) {
@@ -800,9 +906,8 @@ export default function App() {
             }}></audio>
           </div>
 
-          <div className="track" ref={trackRef} aria-label="Pista de notas">
-            <div className="hand-label hand-label-left">Mão esquerda</div>
-            <div className="hand-label hand-label-right">Mão direita</div>
+          <div className={`track hand-mode-${handMode}`} ref={trackRef} aria-label="Pista de notas">
+            {countdown && <div className="countdown-overlay" role="status"><strong>{countdown}</strong><span>{handMode === "left" ? "Prepare ASDF" : handMode === "right" ? "Prepare JKLÇ" : "Prepare as duas mãos"}</span></div>}
             {KEYS.map((key, lane) => (
               <div className={`lane lane-${lane} ${pressedLanes.includes(lane) ? "is-pressed" : ""}`} key={key.label}>
                 <span>{key.label}</span>
@@ -815,7 +920,7 @@ export default function App() {
                 key={note.id}
                 style={{
                   "--lane": note.key,
-                  "--hand-offset": note.key >= 4 ? "30px" : "0px",
+                  "--hand-offset": note.key >= 4 ? "14px" : "0px",
                   "--note-color": KEYS[note.key].color,
                   top: `${note.y}px`,
                 }}
@@ -886,7 +991,7 @@ function Metric({ label, value }) {
   );
 }
 
-function SongInspector({ song, analysis, gameplaySourceMode, onGameplaySourceMode, selectedTrackIds, audioTrackIds, audioMode, audioStatus, previewPlaying, onToggle, onToggleAudio, onMode, onPreview, onStopPreview, onGenerate }) {
+function SongInspector({ song, analysis, gameplaySourceMode, onGameplaySourceMode, selectedTrackIds, audioTrackIds, audioMode, audioStatus, previewPlaying, midiBusy, masterVolume, onMasterVolume, onToggle, onToggleAudio, onMode, onPreview, onStopPreview, onGenerate }) {
   const notes = song.tracks.flatMap((track) => track.notes);
   const pitches = notes.map((note) => note.pitch);
   const firstBpm = song.tempoChanges[0]?.bpm ?? 120;
@@ -905,10 +1010,12 @@ function SongInspector({ song, analysis, gameplaySourceMode, onGameplaySourceMod
         <span><b>Pitch</b>{Math.min(...pitches)}–{Math.max(...pitches)}</span>
       </div>
       {song.source?.format === "MIDI" && <div className="midi-controls">
-        <button className="ghost-action" onClick={onPreview}>{previewPlaying ? "⏸ Pausar MIDI" : "▶ Ouvir MIDI"}</button>
+        <button className="ghost-action" onClick={onPreview} disabled={midiBusy}>{midiBusy ? "Carregando..." : previewPlaying ? "⏸ Pausar MIDI" : "▶ Ouvir MIDI"}</button>
         <button className="ghost-action" onClick={onStopPreview}>■ Parar MIDI</button>
         <label>Modo de áudio <select value={audioMode} onChange={(event) => onMode(event.target.value)}><option value="piano-focus">Destacar piano</option><option value="full">Música completa</option><option value="piano-only">Apenas piano</option></select></label>
+        <label className="volume-control">Volume <input type="range" min="0" max="1" step="0.05" value={masterVolume} onChange={(event) => onMasterVolume(Number(event.target.value))} /><b>{Math.round(masterVolume * 100)}%</b></label>
         <small>{audioStatus}</small>
+        {midiBusy && <div className="inline-loading"><span className="loading-spinner"></span>Aguarde o carregamento dos instrumentos. Cliques extras estão bloqueados.</div>}
       </div>}
       <div className="gameplay-source">
         <strong>Fonte do gameplay</strong>

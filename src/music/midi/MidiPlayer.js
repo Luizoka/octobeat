@@ -20,14 +20,19 @@ export class MidiPlayer {
     this.position = 0;
     this.startedAt = 0;
     this.playing = false;
+    this.disposed = false;
+    this.audioMode = "piano-focus";
+    this.masterVolume = 0.75;
   }
 
   async prepare(trackIds, audioMode = "piano-focus") {
     if (!this.context) this.context = new AudioContext();
+    await this.context.resume();
     const tracks = this.song.tracks.filter((track) => trackIds.includes(track.id) && track.notes.length);
     this.onStatus?.(`Carregando SoundFont (${tracks.length} instrumentos)...`);
+    let loaded = 0;
     await Promise.all(tracks.map(async (track) => {
-      if (this.players.has(track.id)) return;
+      if (this.players.has(track.id) || this.disposed) return;
       const gain = this.context.createGain();
       gain.connect(this.context.destination);
       const family = track.family || classifyMidiTrack(track.playback);
@@ -36,23 +41,39 @@ export class MidiPlayer {
         await player.ready;
       } catch {
         // Um preset ausente não pode silenciar a música inteira.
+        player.dispose?.();
+        if (this.disposed) { gain.disconnect(); return; }
         const fallback = Soundfont(this.context, { instrument: FALLBACK_INSTRUMENT, destination: gain });
         await fallback.ready;
+        if (this.disposed) { fallback.dispose?.(); gain.disconnect(); return; }
         this.players.set(track.id, { player: fallback, gain, family });
+        loaded += 1;
+        this.onStatus?.(`Carregando instrumentos: ${loaded}/${tracks.length}`);
         return;
       }
+      if (this.disposed) { player.dispose?.(); gain.disconnect(); return; }
       this.players.set(track.id, { player, gain, family });
+      loaded += 1;
+      this.onStatus?.(`Carregando instrumentos: ${loaded}/${tracks.length}`);
     }));
+    if (this.disposed) throw new Error("Carregamento do MIDI cancelado.");
     this.setMix(audioMode);
     this.onStatus?.("SoundFont pronto.");
   }
 
   setMix(mode) {
+    this.audioMode = mode;
     this.players.forEach(({ gain, family }) => {
       const isPiano = isPianoFamily(family);
-      const value = mode === "piano-only" ? (isPiano ? 1 : 0) : mode === "piano-focus" ? (isPiano ? 1 : 0.55) : 0.85;
+      const mixValue = mode === "piano-only" ? (isPiano ? 1 : 0) : mode === "piano-focus" ? (isPiano ? 1 : 0.55) : 0.85;
+      const value = mixValue * this.masterVolume;
       gain.gain.setValueAtTime(value, this.context.currentTime);
     });
+  }
+
+  setMasterVolume(value) {
+    this.masterVolume = Math.max(0, Math.min(1, Number(value) || 0));
+    if (this.context) this.setMix(this.audioMode);
   }
 
   async play(position = this.position) {
@@ -91,5 +112,5 @@ export class MidiPlayer {
   }
 
   stopVoices() { this.players.forEach(({ player }) => player.stop()); }
-  dispose() { this.stop(); this.players.forEach(({ player, gain }) => { player.dispose?.(); gain.disconnect(); }); this.players.clear(); this.context?.close(); }
+  dispose() { this.disposed = true; this.stop(); this.players.forEach(({ player, gain }) => { player.dispose?.(); gain.disconnect(); }); this.players.clear(); this.context?.close(); }
 }
