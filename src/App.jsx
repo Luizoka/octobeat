@@ -3,6 +3,12 @@ import { importSong } from "./music/importSong.js";
 import { generateChart } from "./chart/generateChart.js";
 import { normalizeNotes } from "./game/normalizeNotes.js";
 import { judgeNote } from "./game/judgeNote.js";
+import { MidiPlayer } from "./music/midi/MidiPlayer.js";
+import { isPianoFamily } from "./music/midi/classifyTrack.js";
+import octoLogo from "./images/logo_semfundo.png";
+import { analyzeSong } from "./music-analysis/analyzeSong.js";
+import { selectGameplayTracks } from "./music-analysis/selectGameplayTracks.js";
+import { calculateChartMetrics } from "./music-analysis/chartMetrics.js";
 
 const KEYS = [
   { label: "A", values: ["a"], color: "#ff6860" },
@@ -124,7 +130,7 @@ function scheduleNoise(context, nodes, start) {
 }
 
 export default function App() {
-  const [view, setView] = useState("game");
+  const [view, setView] = useState("music");
   const [difficulty, setDifficulty] = useState("normal");
   const [playing, setPlaying] = useState(false);
   const [phase, setPhase] = useState(() => ({ ...DEMO_PHASE, notes: createChart("normal") }));
@@ -133,7 +139,7 @@ export default function App() {
   const [gameAudioUrl, setGameAudioUrl] = useState("");
   const [gameAudioName, setGameAudioName] = useState("Musica demo sintetizada");
   const [notes, setNotes] = useState(() => makePlayableNotes(createChart("normal")));
-  const [pressedLane, setPressedLane] = useState(null);
+  const [pressedLanes, setPressedLanes] = useState([]);
   const [stats, setStats] = useState(blankStats);
   const [editorTitle, setEditorTitle] = useState("");
   const [editorArtist, setEditorArtist] = useState("");
@@ -146,6 +152,11 @@ export default function App() {
   const [selectedTrackIds, setSelectedTrackIds] = useState([]);
   const [songStatus, setSongStatus] = useState("Importe um MIDI ou MusicXML para gerar um chart.");
   const [songLoading, setSongLoading] = useState(false);
+  const [audioTrackIds, setAudioTrackIds] = useState([]);
+  const [audioMode, setAudioMode] = useState("piano-focus");
+  const [midiAudioStatus, setMidiAudioStatus] = useState("Áudio MIDI será carregado automaticamente ao tocar.");
+  const [midiPreviewPlaying, setMidiPreviewPlaying] = useState(false);
+  const [gameplaySourceMode, setGameplaySourceMode] = useState("essence");
 
   const trackRef = useRef(null);
   const gameAudioRef = useRef(null);
@@ -157,6 +168,8 @@ export default function App() {
   const audioContextRef = useRef(null);
   const audioNodesRef = useRef([]);
   const editorRecordingRef = useRef(false);
+  const midiPlayerRef = useRef(null);
+  const chordInputRef = useRef(null);
 
   const accuracy = stats.total ? `${Math.round((stats.hits / stats.total) * 100)}%` : "0%";
   const editorPhase = useMemo(() => ({
@@ -165,6 +178,7 @@ export default function App() {
     notes: editorChart,
   }), [editorArtist, editorAudioName, editorTitle, editorChart]);
   const chartOutput = useMemo(() => JSON.stringify(editorPhase, null, 2), [editorPhase]);
+  const songAnalysis = useMemo(() => importedSong ? analyzeSong(importedSong) : null, [importedSong]);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -196,6 +210,24 @@ export default function App() {
     }
   }, []);
 
+  const stopMidiAudio = useCallback(() => {
+    // Notas do SoundFont são agendadas no futuro. Descartar o contexto é a forma
+    // confiável de cancelar também esses eventos, antes de uma nova execução.
+    midiPlayerRef.current?.dispose();
+    midiPlayerRef.current = null;
+  }, []);
+
+  const playMidi = useCallback(async (position = 0) => {
+    if (!importedSong || importedSong.source?.format !== "MIDI") throw new Error("A reprodução integrada está disponível para MIDI.");
+    if (!midiPlayerRef.current || midiPlayerRef.current.song !== importedSong) {
+      midiPlayerRef.current?.dispose();
+      midiPlayerRef.current = new MidiPlayer(importedSong, { onStatus: setMidiAudioStatus });
+    }
+    await midiPlayerRef.current.prepare(audioTrackIds, audioMode);
+    midiPlayerRef.current.setMix(audioMode);
+    await midiPlayerRef.current.play(position);
+  }, [audioMode, audioTrackIds, importedSong]);
+
   const buildNotes = useCallback((chart = phase.notes) => {
     const nextNotes = makePlayableNotes(chart);
     setNotes(nextNotes);
@@ -207,6 +239,8 @@ export default function App() {
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
     stopGameAudio();
+    stopMidiAudio();
+    setMidiPreviewPlaying(false);
     setPlaying(false);
     playingRef.current = false;
     setStats(blankStats);
@@ -216,7 +250,7 @@ export default function App() {
       setNotes([]);
       notesRef.current = [];
     }
-  }, [buildNotes, stopDemoSong, stopGameAudio]);
+  }, [buildNotes, stopDemoSong, stopGameAudio, stopMidiAudio]);
 
   const startDemoSong = useCallback((chart) => {
     if (!audioContextRef.current) {
@@ -253,7 +287,7 @@ export default function App() {
     const trackHeight = trackRef.current?.clientHeight ?? 600;
     const hitY = trackHeight - 76;
     const fallDuration = 1.55;
-    const time = gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
+    const time = phaseSource === "song" && midiPlayerRef.current?.playing ? midiPlayerRef.current.currentTime() : gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
     let missedCount = 0;
     let finished = false;
 
@@ -289,6 +323,7 @@ export default function App() {
     const lastNote = notesRef.current.at(-1);
     if (finished && lastNote && time > lastNote.time + 0.5) {
       stopGameAudio();
+      stopMidiAudio();
       setPlaying(false);
       playingRef.current = false;
       setStats((current) => ({ ...current, judgement: "Fim" }));
@@ -296,7 +331,7 @@ export default function App() {
     }
 
     animationRef.current = requestAnimationFrame(tick);
-  }, [gameAudioUrl, stopGameAudio]);
+  }, [gameAudioUrl, phaseSource, stopGameAudio, stopMidiAudio]);
 
   const startGame = useCallback(async () => {
     resetGame(false);
@@ -310,15 +345,32 @@ export default function App() {
     setStats(blankStats);
     stopGameAudio();
     stopDemoSong();
+    stopMidiAudio();
+
+    if (phaseSource === "song" && importedSong?.source?.format === "MIDI") {
+      try {
+        await playMidi(0);
+        setMidiPreviewPlaying(false);
+      } catch (error) {
+        setPhaseStatus(error instanceof Error ? error.message : "Não foi possível carregar o SoundFont.");
+        setStats((current) => ({ ...current, judgement: "Áudio indisponível" }));
+        return;
+      }
+      setPlaying(true);
+      playingRef.current = true;
+      animationRef.current = requestAnimationFrame(tick);
+      return;
+    }
 
     if (gameAudioUrl && gameAudioRef.current) {
       gameAudioRef.current.currentTime = 0;
       try {
         await gameAudioRef.current.play();
       } catch {
-        setStats((current) => ({ ...current, judgement: "Audio bloqueado" }));
-        setPhaseStatus("O navegador bloqueou o audio. Tente clicar em Iniciar novamente.");
-        return;
+        // O áudio externo é opcional. Uma falha de reprodução nunca deve impedir
+        // que um chart MIDI/MusicXML seja jogado com o sintetizador interno.
+        setPhaseStatus("O áudio local não iniciou; usando o sintetizador interno.");
+        startDemoSong(nextNotes);
       }
       startAtRef.current = nowSeconds();
     } else {
@@ -328,7 +380,7 @@ export default function App() {
     setPlaying(true);
     playingRef.current = true;
     animationRef.current = requestAnimationFrame(tick);
-  }, [buildNotes, gameAudioUrl, phase.notes, resetGame, startDemoSong, stopDemoSong, stopGameAudio, tick]);
+  }, [buildNotes, gameAudioUrl, importedSong, phase.notes, phaseSource, playMidi, resetGame, startDemoSong, stopDemoSong, stopGameAudio, stopMidiAudio, tick]);
 
   const recordEditorNote = useCallback((lane) => {
     const time = Number(editorAudioRef.current?.currentTime.toFixed(3));
@@ -340,8 +392,8 @@ export default function App() {
   }, []);
 
   const pressLane = useCallback((lane) => {
-    setPressedLane(lane);
-    window.setTimeout(() => setPressedLane(null), 90);
+    setPressedLanes((current) => current.includes(lane) ? current : [...current, lane]);
+    window.setTimeout(() => setPressedLanes((current) => current.filter((item) => item !== lane)), 90);
 
     if (view === "editor" && editorRecordingRef.current) {
       recordEditorNote(lane);
@@ -350,7 +402,7 @@ export default function App() {
 
     if (!playingRef.current) return;
 
-    const time = gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
+    const time = phaseSource === "song" && midiPlayerRef.current?.playing ? midiPlayerRef.current.currentTime() : gameAudioUrl && gameAudioRef.current ? gameAudioRef.current.currentTime : nowSeconds() - startAtRef.current;
     const candidates = notesRef.current
       .filter((note) => !note.hit && !note.missed && note.key === lane)
       .map((note) => ({ note, delta: time - note.time }))
@@ -367,7 +419,15 @@ export default function App() {
       return;
     }
 
-    const { note, delta } = candidates[0];
+    const { note, delta: rawDelta } = candidates[0];
+    const previousChordInput = chordInputRef.current;
+    const isSameChord = previousChordInput
+      && Math.abs(note.time - previousChordInput.noteTime) <= 0.04
+      && performance.now() - previousChordInput.recordedAt <= 160;
+    // Teclas físicas nunca chegam exatamente no mesmo milissegundo. Para notas
+    // do mesmo acorde, o segundo toque recebe o mesmo julgamento do primeiro.
+    const delta = isSameChord ? previousChordInput.delta : rawDelta;
+    chordInputRef.current = { noteTime: note.time, delta, recordedAt: performance.now() };
     const result = judgeNote(delta);
     if (!result) return;
 
@@ -385,7 +445,7 @@ export default function App() {
         judgement: result.label,
       };
     });
-  }, [gameAudioUrl, recordEditorNote, view]);
+  }, [gameAudioUrl, phaseSource, recordEditorNote, view]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -406,6 +466,7 @@ export default function App() {
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
     stopGameAudio();
+    midiPlayerRef.current?.dispose();
   }, [stopDemoSong, stopGameAudio]);
 
   useEffect(() => () => {
@@ -420,11 +481,13 @@ export default function App() {
     const nextDifficulty = event.target.value;
     setDifficulty(nextDifficulty);
     if (importedSong) {
-      const nextNotes = generateChart(importedSong, { trackIds: selectedTrackIds, difficulty: nextDifficulty });
-      const nextPhase = { title: importedSong.title, artist: importedSong.artist, difficulty: nextDifficulty, notes: nextNotes };
+      const selection = selectGameplayTracks(importedSong, { mode: gameplaySourceMode, customTrackIds: selectedTrackIds, analysis: songAnalysis });
+      const nextNotes = generateChart(importedSong, { trackIds: selection.trackIds, difficulty: nextDifficulty });
+      const sourceNames = selection.trackIds.map((id) => importedSong.tracks.find((track) => track.id === id)?.name).filter(Boolean);
+      const nextPhase = { title: importedSong.title, artist: importedSong.artist, difficulty: nextDifficulty, gameplayMode: gameplaySourceMode, gameplayTrackIds: selection.trackIds, chartMetrics: calculateChartMetrics(nextNotes, importedSong.duration, sourceNames), notes: nextNotes };
       setPhase(nextPhase);
       setPhaseSource("song");
-      setPhaseStatus(`${nextNotes.length} notas geradas (${nextDifficulty})`);
+      setPhaseStatus(`${nextNotes.length} notas · ${gameplaySourceMode === "essence" ? "Essência" : gameplaySourceMode === "piano" ? "Piano" : "Personalizado"} · ${sourceNames.join(", ")}`);
       cancelAnimationFrame(animationRef.current);
       stopDemoSong();
       stopGameAudio();
@@ -450,6 +513,12 @@ export default function App() {
   function loadGameAudio(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!/\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(file.name)) {
+      setPhaseStatus("Áudio local aceita MP3, WAV, OGG, M4A, AAC ou FLAC. MIDI deve ser carregado na aba Música.");
+      event.target.value = "";
+      return;
+    }
 
     if (gameAudioUrl) URL.revokeObjectURL(gameAudioUrl);
     setGameAudioUrl(URL.createObjectURL(file));
@@ -487,10 +556,22 @@ export default function App() {
     setSongStatus("Interpretando a música...");
     try {
       const song = await importSong(file);
-      const ids = song.tracks.filter((track) => track.notes.length).map((track) => track.id);
+      const report = analyzeSong(song);
+      const pianoTracks = song.tracks.filter((track) => isPianoFamily(track.family) && track.notes.length);
+      const ids = (pianoTracks.length ? pianoTracks : song.tracks.filter((track) => track.notes.length)).map((track) => track.id);
       setImportedSong(song);
       setSelectedTrackIds(ids);
-      setSongStatus(`${song.source.format} reconhecido: ${song.tracks.length} tracks e ${song.tracks.reduce((total, track) => total + track.notes.length, 0)} notas.`);
+      setGameplaySourceMode("essence");
+      setAudioTrackIds(song.tracks.filter((track) => track.notes.length).map((track) => track.id));
+      midiPlayerRef.current?.dispose();
+      midiPlayerRef.current = null;
+      if (gameAudioUrl) {
+        URL.revokeObjectURL(gameAudioUrl);
+        setGameAudioUrl("");
+        setGameAudioName("Sem áudio local: usando sintetizador interno");
+      }
+      const essenceName = song.tracks.find((track) => track.id === report.selectedTrackId)?.name;
+      setSongStatus(`${song.source.format} reconhecido. Essência sugerida: ${essenceName || "nenhuma track segura"}. ${pianoTracks.length} track(s) de piano encontrada(s).`);
     } catch (error) {
       setImportedSong(null);
       setSelectedTrackIds([]);
@@ -502,23 +583,82 @@ export default function App() {
   }
 
   function toggleSongTrack(id) {
-    setSelectedTrackIds((current) => current.includes(id) ? current.filter((trackId) => trackId !== id) : [...current, id]);
+    setSelectedTrackIds((current) => {
+      const base = gameplaySourceMode === "custom" ? current : selectGameplayTracks(importedSong, { mode: gameplaySourceMode, customTrackIds: current, analysis: songAnalysis }).trackIds;
+      return base.includes(id) ? base.filter((trackId) => trackId !== id) : [...base, id];
+    });
+    setGameplaySourceMode("custom");
+  }
+
+  function toggleAudioTrack(id) {
+    setAudioTrackIds((current) => current.includes(id) ? current.filter((trackId) => trackId !== id) : [...current, id]);
+  }
+
+  async function previewMidi() {
+    try {
+      if (midiPlayerRef.current?.playing) {
+        midiPlayerRef.current.pause();
+        setMidiAudioStatus("MIDI pausado.");
+        setMidiPreviewPlaying(false);
+      } else {
+        await playMidi(midiPlayerRef.current?.position ?? 0);
+        setMidiPreviewPlaying(true);
+      }
+    } catch (error) {
+      setMidiAudioStatus(error instanceof Error ? error.message : "Não foi possível tocar o MIDI.");
+    }
+  }
+
+  function stopMidiPreview() {
+    stopMidiAudio();
+    setMidiPreviewPlaying(false);
+    setMidiAudioStatus("MIDI parado.");
+  }
+
+  async function toggleMidiGamePause() {
+    const player = midiPlayerRef.current;
+    if (!player) return;
+    if (playing) {
+      player.pause();
+      cancelAnimationFrame(animationRef.current);
+      setPlaying(false);
+      playingRef.current = false;
+      setStats((current) => ({ ...current, judgement: "Pausado" }));
+      return;
+    }
+    await playMidi(player.position);
+    setPlaying(true);
+    playingRef.current = true;
+    animationRef.current = requestAnimationFrame(tick);
   }
 
   function generateImportedPhase() {
     if (!importedSong) return;
-    const chart = generateChart(importedSong, { trackIds: selectedTrackIds, difficulty });
+    const selection = selectGameplayTracks(importedSong, { mode: gameplaySourceMode, customTrackIds: selectedTrackIds, analysis: songAnalysis });
+    const chart = generateChart(importedSong, { trackIds: selection.trackIds, difficulty });
     if (!chart.length) {
-      setSongStatus("Selecione ao menos uma track com notas para gerar o chart.");
+      setSongStatus(gameplaySourceMode === "piano" ? "Nenhuma track de piano válida foi encontrada." : "Selecione ao menos uma track válida para gerar o chart.");
       return;
     }
-    const nextPhase = { title: importedSong.title, artist: importedSong.artist, difficulty, notes: chart };
+    const sourceNames = selection.trackIds.map((id) => importedSong.tracks.find((track) => track.id === id)?.name).filter(Boolean);
+    const nextPhase = {
+      title: importedSong.title,
+      artist: importedSong.artist,
+      difficulty,
+      gameplayMode: gameplaySourceMode,
+      gameplayTrackIds: selection.trackIds,
+      analysisPreset: "default",
+      chartMetrics: calculateChartMetrics(chart, importedSong.duration, sourceNames),
+      notes: chart,
+    };
     setPhase(nextPhase);
     setPhaseSource("song");
-    setPhaseStatus(`${chart.length} notas geradas de ${selectedTrackIds.length} track(s).`);
+    setPhaseStatus(`${chart.length} notas · ${gameplaySourceMode === "essence" ? "Essência" : gameplaySourceMode === "piano" ? "Piano" : "Personalizado"} · ${sourceNames.join(", ")}`);
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
     stopGameAudio();
+    stopMidiAudio();
+    setMidiPreviewPlaying(false);
     setPlaying(false);
     playingRef.current = false;
     setStats(blankStats);
@@ -575,9 +715,7 @@ export default function App() {
     <main className="app-shell">
       <section className="topbar" aria-label="Controles principais">
         <div className="brand">
-          <div className="octo-mark" aria-hidden="true">
-            {Array.from({ length: 8 }).map((_, index) => <span key={index}></span>)}
-          </div>
+          <img className="octo-mark" src={octoLogo} alt="Mascote OctoBeat" />
           <div>
             <h1>OctoBeat</h1>
             <p>8 tentaculos, 8 teclas, ritmo direto.</p>
@@ -585,6 +723,7 @@ export default function App() {
         </div>
 
         <div className="view-tabs" role="tablist" aria-label="Modo">
+          <button className={`tab ${view === "music" ? "is-active" : ""}`} onClick={() => setView("music")} role="tab" aria-selected={view === "music"}>Música</button>
           <button className={`tab ${view === "game" ? "is-active" : ""}`} onClick={() => setView("game")} role="tab" aria-selected={view === "game"}>Jogo</button>
           <button className={`tab ${view === "editor" ? "is-active" : ""}`} onClick={() => setView("editor")} role="tab" aria-selected={view === "editor"}>Editor</button>
         </div>
@@ -598,10 +737,31 @@ export default function App() {
           <Metric label="Estado" value={stats.judgement} />
         </aside>
 
+        <section className={`music-wrap ${view === "music" ? "is-visible" : ""}`} aria-label="Importar música">
+          <div className="music-hero">
+            <span className="eyebrow">COMECE POR AQUI</span>
+            <h2>Transforme um MIDI ou MusicXML em uma fase.</h2>
+            <p>O OctoBeat procura tracks de piano primeiro. Você pode manter somente a mão/melodia desejada antes de gerar as 8 teclas.</p>
+            <label className="primary-action music-file-button">
+              {songLoading ? "Lendo a música..." : "Escolher MIDI / MusicXML"}
+              <input type="file" accept=".mid,.midi,.musicxml,.xml,application/xml" onChange={loadSymbolicSong} disabled={songLoading} />
+            </label>
+            <small>Formatos aceitos: .mid, .midi, .musicxml e .xml (MusicXML).</small>
+          </div>
+          {importedSong && <SongInspector song={importedSong} analysis={songAnalysis} gameplaySourceMode={gameplaySourceMode} onGameplaySourceMode={setGameplaySourceMode} selectedTrackIds={selectedTrackIds} audioTrackIds={audioTrackIds} audioMode={audioMode} audioStatus={midiAudioStatus} previewPlaying={midiPreviewPlaying} onToggle={toggleSongTrack} onToggleAudio={toggleAudioTrack} onMode={setAudioMode} onPreview={previewMidi} onStopPreview={stopMidiPreview} onGenerate={generateImportedPhase} />}
+          {!importedSong && <p className="import-status">{songStatus}</p>}
+        </section>
+
         <section className={`stage-wrap ${view === "game" ? "is-visible" : ""}`} aria-label="Jogo">
           <div className="stage-toolbar">
-            <button className="primary-action" onClick={startGame}>{playing ? "Reiniciar" : "Iniciar"}</button>
-            <button className="ghost-action" onClick={() => resetGame(true)}>Reiniciar</button>
+            <div className="playback-controls">
+              <button className="primary-action" onClick={startGame}>{playing ? "↻ Reiniciar" : "▶ Iniciar"}</button>
+              <button className="ghost-action" onClick={() => resetGame(true)}>↻ Reiniciar</button>
+            {phaseSource === "song" && importedSong?.source?.format === "MIDI" && <>
+                <button className="ghost-action" onClick={toggleMidiGamePause}>{playing ? "⏸ Pausar" : "▶ Continuar"}</button>
+                <button className="ghost-action stop-action" onClick={() => resetGame(true)}>■ Parar</button>
+            </>}
+            </div>
             <label className="select-label">
               Dificuldade
               <select value={difficulty} onChange={changeDifficulty}>
@@ -615,9 +775,10 @@ export default function App() {
           <div className="phase-panel">
             <div className="phase-copy">
               <strong>{phase.title}</strong>
-              <span>{phaseSubtitle}</span>
-              <span>{phaseStatus}</span>
-              <span>{usingLocalAudio ? gameAudioName : "Sem audio local: usando musica demo sintetizada"}</span>
+              <span className="song-summary">{phase.notes.length} notas <i>•</i> {phaseSource === "song" ? `${selectedTrackIds.length} tracks` : phaseSubtitle} <i>•</i> {difficulty === "easy" ? "Leve" : difficulty === "hard" ? "Rápida" : "Normal"}</span>
+              <span className="song-status">{phaseStatus}</span>
+              {phase.chartMetrics && <span className="chart-metrics">{phase.chartMetrics.averageNps.toFixed(2)} NPS média · pico {phase.chartMetrics.peakNps}/s · {phase.chartMetrics.chordCount} acordes · maior acorde {phase.chartMetrics.largestChord}</span>}
+              <span className="audio-status">{usingLocalAudio ? gameAudioName : phaseSource === "song" ? "Áudio MIDI integrado" : "Sintetizador interno"}</span>
             </div>
             <div className="phase-actions">
               <label className="file-button">
@@ -640,8 +801,10 @@ export default function App() {
           </div>
 
           <div className="track" ref={trackRef} aria-label="Pista de notas">
+            <div className="hand-label hand-label-left">Mão esquerda</div>
+            <div className="hand-label hand-label-right">Mão direita</div>
             {KEYS.map((key, lane) => (
-              <div className={`lane ${pressedLane === lane ? "is-pressed" : ""}`} key={key.label}>
+              <div className={`lane lane-${lane} ${pressedLanes.includes(lane) ? "is-pressed" : ""}`} key={key.label}>
                 <span>{key.label}</span>
               </div>
             ))}
@@ -652,6 +815,7 @@ export default function App() {
                 key={note.id}
                 style={{
                   "--lane": note.key,
+                  "--hand-offset": note.key >= 4 ? "30px" : "0px",
                   "--note-color": KEYS[note.key].color,
                   top: `${note.y}px`,
                 }}
@@ -671,20 +835,6 @@ export default function App() {
               <input type="file" accept="audio/*" onChange={loadEditorAudio} />
             </label>
           </div>
-
-          <section className="song-importer" aria-label="Importação de música simbólica">
-            <div className="importer-heading">
-              <div>
-                <h3>Gerar chart de MIDI ou MusicXML</h3>
-                <p>{songStatus}</p>
-              </div>
-              <label className="file-button">
-                {songLoading ? "Lendo..." : "MIDI / MusicXML"}
-                <input type="file" accept=".mid,.midi,.musicxml,.xml,application/xml" onChange={loadSymbolicSong} disabled={songLoading} />
-              </label>
-            </div>
-            {importedSong && <SongInspector song={importedSong} selectedTrackIds={selectedTrackIds} onToggle={toggleSongTrack} onGenerate={generateImportedPhase} />}
-          </section>
 
           <div className="editor-meta">
             <label>
@@ -727,18 +877,25 @@ export default function App() {
 }
 
 function Metric({ label, value }) {
+  const icons = { Pontos: "★", Combo: "⚡", Precisao: "◎", Estado: "●" };
   return (
     <div className="metric">
-      <span>{label}</span>
+      <span><b>{icons[label]}</b>{label}</span>
       <strong>{value}</strong>
     </div>
   );
 }
 
-function SongInspector({ song, selectedTrackIds, onToggle, onGenerate }) {
+function SongInspector({ song, analysis, gameplaySourceMode, onGameplaySourceMode, selectedTrackIds, audioTrackIds, audioMode, audioStatus, previewPlaying, onToggle, onToggleAudio, onMode, onPreview, onStopPreview, onGenerate }) {
   const notes = song.tracks.flatMap((track) => track.notes);
   const pitches = notes.map((note) => note.pitch);
   const firstBpm = song.tempoChanges[0]?.bpm ?? 120;
+  const analysisById = new Map(analysis?.tracks.map((track) => [track.id, track]) ?? []);
+  const musicalTracks = song.tracks.filter((track) => track.notes.length);
+  const emptyTracks = song.tracks.filter((track) => !track.notes.length);
+  const pianoIds = new Set((analysis?.tracks ?? []).filter((track) => track.noteCount && !track.suspicious && isPianoFamily(track.instrumentFamily)).map((track) => track.id));
+  const essenceId = analysis?.selectedTrackId;
+  const isCheckedForGameplay = (track) => gameplaySourceMode === "essence" ? track.id === essenceId : gameplaySourceMode === "piano" ? pianoIds.has(track.id) : selectedTrackIds.includes(track.id);
   return (
     <div className="song-inspector">
       <div className="song-metrics">
@@ -747,15 +904,44 @@ function SongInspector({ song, selectedTrackIds, onToggle, onGenerate }) {
         <span><b>BPM</b>{Math.round(firstBpm)}{song.tempoChanges.length > 1 ? ` (+${song.tempoChanges.length - 1})` : ""}</span>
         <span><b>Pitch</b>{Math.min(...pitches)}–{Math.max(...pitches)}</span>
       </div>
-      <div className="track-list">
-        {song.tracks.map((track) => (
-          <label className="song-track" key={track.id}>
-            <input type="checkbox" checked={selectedTrackIds.includes(track.id)} onChange={() => onToggle(track.id)} disabled={!track.notes.length} />
-            <span><b>{track.name}</b><small>{track.instrument} · {track.notes.length} notas</small></span>
-          </label>
-        ))}
+      {song.source?.format === "MIDI" && <div className="midi-controls">
+        <button className="ghost-action" onClick={onPreview}>{previewPlaying ? "⏸ Pausar MIDI" : "▶ Ouvir MIDI"}</button>
+        <button className="ghost-action" onClick={onStopPreview}>■ Parar MIDI</button>
+        <label>Modo de áudio <select value={audioMode} onChange={(event) => onMode(event.target.value)}><option value="piano-focus">Destacar piano</option><option value="full">Música completa</option><option value="piano-only">Apenas piano</option></select></label>
+        <small>{audioStatus}</small>
+      </div>}
+      <div className="gameplay-source">
+        <strong>Fonte do gameplay</strong>
+        <label><input type="radio" name="gameplay-source" value="piano" checked={gameplaySourceMode === "piano"} onChange={(event) => onGameplaySourceMode(event.target.value)} /> Piano</label>
+        <label><input type="radio" name="gameplay-source" value="essence" checked={gameplaySourceMode === "essence"} onChange={(event) => onGameplaySourceMode(event.target.value)} /> Essência da música <small>recomendado</small></label>
+        <label><input type="radio" name="gameplay-source" value="custom" checked={gameplaySourceMode === "custom"} onChange={(event) => onGameplaySourceMode(event.target.value)} /> Personalizado</label>
       </div>
-      <button className="primary-action" onClick={onGenerate} disabled={!selectedTrackIds.length}>Gerar chart e jogar</button>
+      <div className="track-list track-list-detailed">
+        {musicalTracks.map((track) => {
+          const trackAnalysis = analysisById.get(track.id);
+          return <label className={`song-track ${trackAnalysis?.suspicious ? "is-suspicious" : ""} ${track.id === essenceId ? "is-essence" : ""}`} key={track.id}>
+            <input type="checkbox" checked={audioTrackIds.includes(track.id)} onChange={() => onToggleAudio(track.id)} disabled={!track.notes.length} title="Ouvir" />
+            <input type="checkbox" checked={isCheckedForGameplay(track)} onChange={() => onToggle(track.id)} disabled={trackAnalysis?.suspicious} title={trackAnalysis?.suspicious ? "Track suspeita: bloqueada na seleção automática" : "Jogar"} />
+            <span><b>{track.name}{track.id === essenceId && <em> Essência</em>}{trackAnalysis?.suspicious && <em className="warning"> Suspeita</em>}</b><small>{track.family} · {track.instrument} · {track.notes.length} notas · {(trackAnalysis?.notesPerSecond ?? 0).toFixed(1)} NPS</small></span>
+          </label>;
+        })}
+      </div>
+      <div className="track-legend"><span>1º checkbox: Ouvir</span><span>2º checkbox: Jogar</span></div>
+      <button className="primary-action" onClick={onGenerate}>Gerar chart e abrir o jogo</button>
+      <details className="analysis-panel">
+        <summary>Mostrar análise avançada ({analysis?.candidates.length ?? 0} candidatas)</summary>
+        <div className="analysis-ranking">
+          {(analysis?.tracks ?? []).filter((track) => track.noteCount).sort((a, b) => b.melodyScore - a.melodyScore).map((track, index) => (
+            <article key={track.id} className={track.suspicious ? "is-suspicious" : ""}>
+              <header><strong>#{index + 1} {track.name}</strong><b>{Number.isFinite(track.melodyScore) ? track.melodyScore.toFixed(1) : "—"}</b></header>
+              <p>{track.instrumentFamily} · {track.noteCount} notas · {track.notesPerSecond.toFixed(2)} NPS · mono {(track.monophonyRatio * 100).toFixed(0)}%</p>
+              <p>pitch {track.averagePitch?.toFixed(1)} · velocity {track.averageVelocity?.toFixed(2)} · duração {track.averageNoteDuration?.toFixed(3)}s</p>
+              <code>{track.scoreReasons.join(" · ")}</code>
+            </article>
+          ))}
+        </div>
+        {emptyTracks.length > 0 && <p className="empty-track-note">{emptyTracks.length} track(s) com zero notas foram ignoradas: {emptyTracks.map((track) => track.name).join(", ")}</p>}
+      </details>
       <details><summary>Primeiras notas interpretadas</summary><code>{JSON.stringify(notes.slice(0, 12), null, 2)}</code></details>
     </div>
   );

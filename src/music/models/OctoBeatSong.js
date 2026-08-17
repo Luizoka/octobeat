@@ -4,7 +4,9 @@ export function makeOctoBeatSong(data = {}) {
   const tracks = (data.tracks ?? []).map((track, index) => ({
     id: String(track.id ?? `track-${index + 1}`),
     name: String(track.name || `Track ${index + 1}`),
-    instrument: String(track.instrument || "unknown"),
+      instrument: String(track.instrument || "unknown"),
+      family: track.family || "unknown",
+      playback: track.playback,
     notes: (track.notes ?? [])
       .map((note) => ({
         pitch: Number(note.pitch),

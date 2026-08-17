@@ -4,19 +4,20 @@ Jogo de ritmo casual para navegador inspirado em Piano Tiles e Guitar Hero. O fo
 
 ## Como rodar
 
-Instale as dependencias:
+No terminal, dentro da pasta do projeto, instale as dependências:
 
 ```bash
 npm install
 ```
 
-Rode o servidor de desenvolvimento:
+Depois rode o servidor de desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-Depois acesse a URL mostrada pelo Vite, normalmente `http://localhost:5173`.
+Abra no navegador o endereço exibido pelo Vite, normalmente `http://localhost:5173`.
+Para encerrar o servidor, use `Ctrl + C` no terminal.
 
 ## Controles
 
@@ -35,6 +36,9 @@ Em teclados sem `Ç`, a ultima coluna tambem aceita `;`.
 - Dificuldades leve, normal e rapida.
 - Editor manual com upload de audio, gravacao de teclas no tempo da musica e exportacao JSON com metadados.
 - Importador MIDI (`.mid`/`.midi`) e MusicXML (`.musicxml`/`.xml`), com seleção de tracks e geração de chart em 8 lanes.
+- Reprodução integrada de MIDI por SoundFont General MIDI: todas as tracks habilitadas são ouvidas, enquanto as tracks de piano alimentam o gameplay por padrão.
+- Modos de gameplay `Piano`, `Essência da música` e `Personalizado`. A Essência v1 analisa densidade, monofonia, pitch, velocity, duração, atividade e família do instrumento para escolher uma fonte melódica global segura.
+- Painel avançado de diagnóstico com ranking, score explicável, NPS e detecção de tracks suspeitas (30+ notas/s).
 
 ## Formato de fase
 
@@ -68,10 +72,10 @@ O jogo tambem aceita temporariamente o formato antigo:
 
 ### A partir de MIDI ou MusicXML
 
-1. Abra o modo `Editor`.
-2. Em `Gerar chart de MIDI ou MusicXML`, escolha o arquivo.
-3. Confira os metadados e marque as tracks que devem entrar no chart.
-4. Escolha a dificuldade no modo `Jogo` e clique em `Gerar chart e jogar`.
+1. A tela inicial é `Música`. Clique em `Escolher MIDI / MusicXML`.
+2. Confira os dados e as tracks. Tracks de piano são selecionadas automaticamente quando existirem.
+3. Clique em `Gerar chart e abrir o jogo`.
+4. Escolha a dificuldade no modo `Jogo`.
 5. Opcionalmente associe um áudio local e exporte o JSON da fase.
 
 ### Gravação manual
