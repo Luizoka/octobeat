@@ -1,7 +1,18 @@
-import { Soundfont } from "smplr";
+import { Scheduler, Soundfont } from "smplr";
 import { classifyMidiTrack, isPianoFamily } from "./classifyTrack.js";
 
 const FALLBACK_INSTRUMENT = "acoustic_grand_piano";
+
+// O smplr entrega cada nota agendada ao Web Audio só `lookaheadMs` antes da hora,
+// por um timer na thread principal. Com o padrão (200 ms), qualquer travada da
+// tela maior que isso atrasa as notas e a música "engasga". Com 1 s de folga, o
+// áudio já está nas mãos do Web Audio (que roda em outra thread) bem antes.
+// Pausar/parar descarta o player inteiro, então a folga maior não atrapalha.
+const AUDIO_LOOKAHEAD_MS = 1000;
+// As notas são entregues ao smplr aos poucos (janela de FEED_HORIZON_S à frente),
+// em vez de as ~6000 notas de uma música inteira no instante em que ela começa.
+const FEED_HORIZON_S = 3;
+const FEED_INTERVAL_MS = 250;
 
 function soundfontName(track) {
   if (track.playback?.isPercussion) return "percussion";
@@ -23,10 +34,15 @@ export class MidiPlayer {
     this.disposed = false;
     this.audioMode = "piano-focus";
     this.masterVolume = 0.75;
+    this.scheduler = null;
+    this.queues = null;
+    this.feedTimer = null;
   }
 
   async prepare(trackIds, audioMode = "piano-focus") {
     if (!this.context) this.context = new AudioContext();
+    // Uma fila só para todos os instrumentos (em vez de um timer por instrumento).
+    this.scheduler ??= Scheduler(this.context, { lookaheadMs: AUDIO_LOOKAHEAD_MS, intervalMs: 50 });
     await this.context.resume();
     const tracks = this.song.tracks.filter((track) => trackIds.includes(track.id) && track.notes.length);
     this.onStatus?.(`Carregando SoundFont (${tracks.length} instrumentos)...`);
@@ -36,14 +52,14 @@ export class MidiPlayer {
       const gain = this.context.createGain();
       gain.connect(this.context.destination);
       const family = track.family || classifyMidiTrack(track.playback);
-      const player = Soundfont(this.context, { instrument: soundfontName(track), destination: gain });
+      const player = Soundfont(this.context, { instrument: soundfontName(track), destination: gain, scheduler: this.scheduler });
       try {
         await player.ready;
       } catch {
         // Um preset ausente não pode silenciar a música inteira.
         player.dispose?.();
         if (this.disposed) { gain.disconnect(); return; }
-        const fallback = Soundfont(this.context, { instrument: FALLBACK_INSTRUMENT, destination: gain });
+        const fallback = Soundfont(this.context, { instrument: FALLBACK_INSTRUMENT, destination: gain, scheduler: this.scheduler });
         await fallback.ready;
         if (this.disposed) { fallback.dispose?.(); gain.disconnect(); return; }
         this.players.set(track.id, { player: fallback, gain, family });
@@ -79,20 +95,44 @@ export class MidiPlayer {
   async play(position = this.position) {
     await this.context.resume();
     this.stopVoices();
+    this.stopFeeding();
     this.position = position;
     this.startedAt = this.context.currentTime - position;
-    this.players.forEach(({ player }, trackId) => {
+    // Por track: notas ordenadas e o índice da próxima a entregar.
+    this.queues = new Map();
+    this.players.forEach((_, trackId) => {
       const track = this.song.tracks.find((item) => item.id === trackId);
-      track.notes.filter((note) => note.start + note.duration > position).forEach((note) => {
+      const notes = (track?.notes ?? []).filter((note) => note.start + note.duration > position);
+      this.queues.set(trackId, { notes, next: 0 });
+    });
+    this.playing = true;
+    this.feed();
+    this.feedTimer = setInterval(() => this.feed(), FEED_INTERVAL_MS);
+  }
+
+  /** Entrega ao smplr as notas que começam nos próximos FEED_HORIZON_S segundos. */
+  feed() {
+    if (!this.playing || this.disposed) return;
+    const horizon = this.currentTime() + FEED_HORIZON_S;
+    this.players.forEach(({ player }, trackId) => {
+      const queue = this.queues?.get(trackId);
+      if (!queue) return;
+      while (queue.next < queue.notes.length && queue.notes[queue.next].start < horizon) {
+        const note = queue.notes[queue.next];
         player.start({
           note: note.pitch,
           velocity: Math.round((note.velocity ?? 0.8) * 127),
           time: this.startedAt + note.start,
           duration: note.duration,
         });
-      });
+        queue.next += 1;
+      }
     });
-    this.playing = true;
+  }
+
+  stopFeeding() {
+    if (this.feedTimer) clearInterval(this.feedTimer);
+    this.feedTimer = null;
   }
 
   currentTime() {
@@ -101,16 +141,18 @@ export class MidiPlayer {
 
   pause() {
     this.position = this.currentTime();
+    this.stopFeeding();
     this.stopVoices();
     this.playing = false;
   }
 
   stop() {
+    this.stopFeeding();
     this.stopVoices();
     this.position = 0;
     this.playing = false;
   }
 
   stopVoices() { this.players.forEach(({ player }) => player.stop()); }
-  dispose() { this.disposed = true; this.stop(); this.players.forEach(({ player, gain }) => { player.dispose?.(); gain.disconnect(); }); this.players.clear(); this.context?.close(); }
+  dispose() { this.disposed = true; this.stop(); this.players.forEach(({ player, gain }) => { player.dispose?.(); gain.disconnect(); }); this.players.clear(); this.scheduler?.stop(); this.context?.close(); }
 }

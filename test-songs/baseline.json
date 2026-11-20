@@ -1,0 +1,1139 @@
+[
+  {
+    "song": "synthetic-ballad-long-notes",
+    "mode": "essence",
+    "difficulty": "easy",
+    "tracks": [
+      "Piano"
+    ],
+    "metrics": {
+      "noteCount": 128,
+      "averageNps": 2.4188824007407828,
+      "peakNps": 3,
+      "onBeatRatio": 0.5,
+      "beatRecall": 1,
+      "laneEntropy": 0.8333333333333334,
+      "laneUsage": [
+        16,
+        16,
+        16,
+        32,
+        0,
+        32,
+        16,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.031496062992125984,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-ballad-long-notes",
+    "mode": "essence",
+    "difficulty": "normal",
+    "tracks": [
+      "Piano"
+    ],
+    "metrics": {
+      "noteCount": 256,
+      "averageNps": 4.818823529411764,
+      "peakNps": 5,
+      "onBeatRatio": 0.25,
+      "beatRecall": 1,
+      "laneEntropy": 0.9528195311147831,
+      "laneUsage": [
+        16,
+        16,
+        32,
+        48,
+        48,
+        32,
+        48,
+        16
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-ballad-long-notes",
+    "mode": "essence",
+    "difficulty": "hard",
+    "tracks": [
+      "Piano"
+    ],
+    "metrics": {
+      "noteCount": 256,
+      "averageNps": 4.818823529411764,
+      "peakNps": 5,
+      "onBeatRatio": 0.25,
+      "beatRecall": 1,
+      "laneEntropy": 0.9528195311147831,
+      "laneUsage": [
+        16,
+        16,
+        32,
+        48,
+        48,
+        32,
+        48,
+        16
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-ballad-long-notes",
+    "mode": "piano",
+    "difficulty": "easy",
+    "tracks": [
+      "Piano"
+    ],
+    "metrics": {
+      "noteCount": 128,
+      "averageNps": 2.4188824007407828,
+      "peakNps": 3,
+      "onBeatRatio": 0.5,
+      "beatRecall": 1,
+      "laneEntropy": 0.8333333333333334,
+      "laneUsage": [
+        16,
+        16,
+        16,
+        32,
+        0,
+        32,
+        16,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.031496062992125984,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-ballad-long-notes",
+    "mode": "piano",
+    "difficulty": "normal",
+    "tracks": [
+      "Piano"
+    ],
+    "metrics": {
+      "noteCount": 256,
+      "averageNps": 4.818823529411764,
+      "peakNps": 5,
+      "onBeatRatio": 0.25,
+      "beatRecall": 1,
+      "laneEntropy": 0.9528195311147831,
+      "laneUsage": [
+        16,
+        16,
+        32,
+        48,
+        48,
+        32,
+        48,
+        16
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-ballad-long-notes",
+    "mode": "piano",
+    "difficulty": "hard",
+    "tracks": [
+      "Piano"
+    ],
+    "metrics": {
+      "noteCount": 256,
+      "averageNps": 4.818823529411764,
+      "peakNps": 5,
+      "onBeatRatio": 0.25,
+      "beatRecall": 1,
+      "laneEntropy": 0.9528195311147831,
+      "laneUsage": [
+        16,
+        16,
+        32,
+        48,
+        48,
+        32,
+        48,
+        16
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-melody-switch",
+    "mode": "essence",
+    "difficulty": "easy",
+    "tracks": [
+      "Flute"
+    ],
+    "metrics": {
+      "noteCount": 30,
+      "averageNps": 1.7742030871133716,
+      "peakNps": 2,
+      "onBeatRatio": 0.9666666666666667,
+      "beatRecall": 0.453125,
+      "laneEntropy": 0.9297881159213902,
+      "laneUsage": [
+        7,
+        4,
+        6,
+        2,
+        2,
+        3,
+        1,
+        5
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.3103448275862069,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-melody-switch",
+    "mode": "essence",
+    "difficulty": "normal",
+    "tracks": [
+      "Flute"
+    ],
+    "metrics": {
+      "noteCount": 42,
+      "averageNps": 2.4838843219587203,
+      "peakNps": 4,
+      "onBeatRatio": 0.7142857142857143,
+      "beatRecall": 0.46875,
+      "laneEntropy": 0.9345101254246617,
+      "laneUsage": [
+        10,
+        4,
+        8,
+        3,
+        4,
+        3,
+        2,
+        8
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.34146341463414637,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-melody-switch",
+    "mode": "essence",
+    "difficulty": "hard",
+    "tracks": [
+      "Flute"
+    ],
+    "metrics": {
+      "noteCount": 42,
+      "averageNps": 2.4838843219587203,
+      "peakNps": 4,
+      "onBeatRatio": 0.7142857142857143,
+      "beatRecall": 0.46875,
+      "laneEntropy": 0.9345101254246617,
+      "laneUsage": [
+        10,
+        4,
+        8,
+        3,
+        4,
+        3,
+        2,
+        8
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.34146341463414637,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-melody-switch",
+    "mode": "piano",
+    "difficulty": "easy",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-melody-switch",
+    "mode": "piano",
+    "difficulty": "normal",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-melody-switch",
+    "mode": "piano",
+    "difficulty": "hard",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-outlier-pitch",
+    "mode": "essence",
+    "difficulty": "easy",
+    "tracks": [
+      "Flute"
+    ],
+    "metrics": {
+      "noteCount": 58,
+      "averageNps": 1.8412698412698412,
+      "peakNps": 3,
+      "onBeatRatio": 0.8793103448275862,
+      "beatRecall": 0.796875,
+      "laneEntropy": 0.39472221554521325,
+      "laneUsage": [
+        1,
+        0,
+        0,
+        22,
+        34,
+        0,
+        0,
+        1
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.6842105263157895,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-outlier-pitch",
+    "mode": "essence",
+    "difficulty": "normal",
+    "tracks": [
+      "Flute"
+    ],
+    "metrics": {
+      "noteCount": 76,
+      "averageNps": 2.4126984126984126,
+      "peakNps": 4,
+      "onBeatRatio": 0.75,
+      "beatRecall": 0.890625,
+      "laneEntropy": 0.3472406893651343,
+      "laneUsage": [
+        1,
+        0,
+        0,
+        28,
+        47,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.7733333333333333,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-outlier-pitch",
+    "mode": "essence",
+    "difficulty": "hard",
+    "tracks": [
+      "Flute"
+    ],
+    "metrics": {
+      "noteCount": 78,
+      "averageNps": 2.4761904761904763,
+      "peakNps": 5,
+      "onBeatRatio": 0.7435897435897436,
+      "beatRecall": 0.90625,
+      "laneEntropy": 0.3774113170243882,
+      "laneUsage": [
+        1,
+        0,
+        0,
+        29,
+        47,
+        0,
+        0,
+        1
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.7532467532467533,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-outlier-pitch",
+    "mode": "piano",
+    "difficulty": "easy",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-outlier-pitch",
+    "mode": "piano",
+    "difficulty": "normal",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-outlier-pitch",
+    "mode": "piano",
+    "difficulty": "hard",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-piano-two-hands",
+    "mode": "essence",
+    "difficulty": "easy",
+    "tracks": [
+      "Piano RH"
+    ],
+    "metrics": {
+      "noteCount": 51,
+      "averageNps": 1.6276768901796828,
+      "peakNps": 3,
+      "onBeatRatio": 0.8627450980392157,
+      "beatRecall": 0.9166666666666666,
+      "laneEntropy": 0.9233247400413799,
+      "laneUsage": [
+        5,
+        7,
+        9,
+        11,
+        2,
+        9,
+        7,
+        1
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.44,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-piano-two-hands",
+    "mode": "essence",
+    "difficulty": "normal",
+    "tracks": [
+      "Piano RH"
+    ],
+    "metrics": {
+      "noteCount": 51,
+      "averageNps": 1.6276768901796828,
+      "peakNps": 3,
+      "onBeatRatio": 0.8627450980392157,
+      "beatRecall": 0.9166666666666666,
+      "laneEntropy": 0.9233247400413799,
+      "laneUsage": [
+        5,
+        7,
+        9,
+        11,
+        2,
+        9,
+        7,
+        1
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.44,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-piano-two-hands",
+    "mode": "essence",
+    "difficulty": "hard",
+    "tracks": [
+      "Piano RH"
+    ],
+    "metrics": {
+      "noteCount": 51,
+      "averageNps": 1.6276768901796828,
+      "peakNps": 3,
+      "onBeatRatio": 0.8627450980392157,
+      "beatRecall": 0.9166666666666666,
+      "laneEntropy": 0.9233247400413799,
+      "laneUsage": [
+        5,
+        7,
+        9,
+        11,
+        2,
+        9,
+        7,
+        1
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.44,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-piano-two-hands",
+    "mode": "piano",
+    "difficulty": "easy",
+    "tracks": [
+      "Piano RH",
+      "Piano LH"
+    ],
+    "metrics": {
+      "noteCount": 55,
+      "averageNps": 1.7553378227427952,
+      "peakNps": 3,
+      "onBeatRatio": 0.8727272727272727,
+      "beatRecall": 1,
+      "laneEntropy": 0.6534153989625786,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        2,
+        11,
+        16,
+        22,
+        4
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.5555555555555556,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-piano-two-hands",
+    "mode": "piano",
+    "difficulty": "normal",
+    "tracks": [
+      "Piano RH",
+      "Piano LH"
+    ],
+    "metrics": {
+      "noteCount": 103,
+      "averageNps": 3.287269013500144,
+      "peakNps": 5,
+      "onBeatRatio": 0.9320388349514563,
+      "beatRecall": 1,
+      "laneEntropy": 0.890732515187128,
+      "laneUsage": [
+        4,
+        12,
+        2,
+        21,
+        22,
+        16,
+        22,
+        4
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 48,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-piano-two-hands",
+    "mode": "piano",
+    "difficulty": "hard",
+    "tracks": [
+      "Piano RH",
+      "Piano LH"
+    ],
+    "metrics": {
+      "noteCount": 128,
+      "averageNps": 4.085149842019596,
+      "peakNps": 7,
+      "onBeatRatio": 0.9453125,
+      "beatRecall": 1,
+      "laneEntropy": 0.918660048883607,
+      "laneUsage": [
+        4,
+        12,
+        16,
+        32,
+        22,
+        16,
+        22,
+        4
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 48,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-tempo-change",
+    "mode": "essence",
+    "difficulty": "easy",
+    "tracks": [
+      "Lead"
+    ],
+    "metrics": {
+      "noteCount": 66,
+      "averageNps": 2.1153846153846154,
+      "peakNps": 3,
+      "onBeatRatio": 0.7575757575757576,
+      "beatRecall": 0.78125,
+      "laneEntropy": 0.9474703369333541,
+      "laneUsage": [
+        8,
+        10,
+        11,
+        16,
+        7,
+        7,
+        4,
+        3
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.23076923076923078,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-tempo-change",
+    "mode": "essence",
+    "difficulty": "normal",
+    "tracks": [
+      "Lead"
+    ],
+    "metrics": {
+      "noteCount": 66,
+      "averageNps": 2.1153846153846154,
+      "peakNps": 3,
+      "onBeatRatio": 0.7575757575757576,
+      "beatRecall": 0.78125,
+      "laneEntropy": 0.9474703369333541,
+      "laneUsage": [
+        8,
+        10,
+        11,
+        16,
+        7,
+        7,
+        4,
+        3
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.23076923076923078,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-tempo-change",
+    "mode": "essence",
+    "difficulty": "hard",
+    "tracks": [
+      "Lead"
+    ],
+    "metrics": {
+      "noteCount": 75,
+      "averageNps": 2.388535031847134,
+      "peakNps": 5,
+      "onBeatRatio": 0.6933333333333334,
+      "beatRecall": 0.8125,
+      "laneEntropy": 0.9355997691224173,
+      "laneUsage": [
+        9,
+        11,
+        15,
+        18,
+        7,
+        8,
+        4,
+        3
+      ],
+      "jacks": 6,
+      "jackRatio": 0.08,
+      "sameLaneRepeatRatio": 0.22972972972972974,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-tempo-change",
+    "mode": "piano",
+    "difficulty": "easy",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-tempo-change",
+    "mode": "piano",
+    "difficulty": "normal",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "synthetic-tempo-change",
+    "mode": "piano",
+    "difficulty": "hard",
+    "tracks": [],
+    "metrics": {
+      "noteCount": 0,
+      "averageNps": 0,
+      "peakNps": 0,
+      "onBeatRatio": 0,
+      "beatRecall": 0,
+      "laneEntropy": 0,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "Deltarune - vs Susie - MIDI by LukeeGD",
+    "mode": "essence",
+    "difficulty": "easy",
+    "tracks": [
+      "Track 3"
+    ],
+    "metrics": {
+      "noteCount": 196,
+      "averageNps": 2.4294709703009567,
+      "peakNps": 3,
+      "onBeatRatio": 1,
+      "beatRecall": 0.98,
+      "laneEntropy": 0.5,
+      "laneUsage": [
+        49,
+        0,
+        0,
+        0,
+        49,
+        0,
+        98,
+        0
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.2512820512820513,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "Deltarune - vs Susie - MIDI by LukeeGD",
+    "mode": "essence",
+    "difficulty": "normal",
+    "tracks": [
+      "Track 3"
+    ],
+    "metrics": {
+      "noteCount": 392,
+      "averageNps": 4.846806300848191,
+      "peakNps": 5,
+      "onBeatRatio": 0.5,
+      "beatRecall": 0.98,
+      "laneEntropy": 0.6352130207431889,
+      "laneUsage": [
+        147,
+        0,
+        0,
+        0,
+        98,
+        0,
+        98,
+        49
+      ],
+      "jacks": 49,
+      "jackRatio": 0.125,
+      "sameLaneRepeatRatio": 0.12531969309462915,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "Deltarune - vs Susie - MIDI by LukeeGD",
+    "mode": "essence",
+    "difficulty": "hard",
+    "tracks": [
+      "Track 3"
+    ],
+    "metrics": {
+      "noteCount": 392,
+      "averageNps": 4.846806300848191,
+      "peakNps": 5,
+      "onBeatRatio": 0.5,
+      "beatRecall": 0.98,
+      "laneEntropy": 0.6352130207431889,
+      "laneUsage": [
+        147,
+        0,
+        0,
+        0,
+        98,
+        0,
+        98,
+        49
+      ],
+      "jacks": 49,
+      "jackRatio": 0.125,
+      "sameLaneRepeatRatio": 0.12531969309462915,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "Deltarune - vs Susie - MIDI by LukeeGD",
+    "mode": "piano",
+    "difficulty": "easy",
+    "tracks": [
+      "-"
+    ],
+    "metrics": {
+      "noteCount": 16,
+      "averageNps": 0.6577865482650879,
+      "peakNps": 1,
+      "onBeatRatio": 1,
+      "beatRecall": 0.08,
+      "laneEntropy": 0.3333333333333333,
+      "laneUsage": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        8,
+        8
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0.5333333333333333,
+      "chords": 0,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "Deltarune - vs Susie - MIDI by LukeeGD",
+    "mode": "piano",
+    "difficulty": "normal",
+    "tracks": [
+      "-"
+    ],
+    "metrics": {
+      "noteCount": 32,
+      "averageNps": 1.3155730965301757,
+      "peakNps": 2,
+      "onBeatRatio": 1,
+      "beatRecall": 0.08,
+      "laneEntropy": 0.6666666666666666,
+      "laneUsage": [
+        0,
+        0,
+        8,
+        8,
+        0,
+        0,
+        8,
+        8
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 16,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  },
+  {
+    "song": "Deltarune - vs Susie - MIDI by LukeeGD",
+    "mode": "piano",
+    "difficulty": "hard",
+    "tracks": [
+      "-"
+    ],
+    "metrics": {
+      "noteCount": 48,
+      "averageNps": 1.9733596447952635,
+      "peakNps": 3,
+      "onBeatRatio": 1,
+      "beatRecall": 0.08,
+      "laneEntropy": 0.861654166907052,
+      "laneUsage": [
+        8,
+        8,
+        8,
+        8,
+        0,
+        0,
+        8,
+        8
+      ],
+      "jacks": 0,
+      "jackRatio": 0,
+      "sameLaneRepeatRatio": 0,
+      "chords": 16,
+      "sameHandTriples": 0,
+      "unplayable": 0
+    }
+  }
+]

@@ -7,7 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test"
+    "play": "vite build && vite preview --host 0.0.0.0",
+    "test": "node --test",
+    "eval:charts": "node scripts/evaluateCharts.js",
+    "eval:songs": "node scripts/makeSyntheticSongs.js"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",

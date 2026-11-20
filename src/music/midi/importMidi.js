@@ -18,9 +18,11 @@ export async function importMidi(file) {
     title: file.name.replace(/\.(mid|midi)$/i, ""),
     artist: "Créditos não informados no MIDI",
     duration: midi.duration,
-    tempoChanges: midi.header.tempos.map((tempo) => ({ time: tempo.seconds, bpm: tempo.bpm })),
+    // O @tonejs/midi expõe `time` (segundos) nos tempos e só `ticks` nas fórmulas
+    // de compasso; converter pelos ticks evita que tudo caia em time = 0.
+    tempoChanges: midi.header.tempos.map((tempo) => ({ time: midi.header.ticksToSeconds(tempo.ticks), bpm: tempo.bpm })),
     timeSignatures: midi.header.timeSignatures.map((signature) => ({
-      time: signature.seconds,
+      time: midi.header.ticksToSeconds(signature.ticks),
       beats: signature.timeSignature[0],
       beatType: signature.timeSignature[1],
     })),
