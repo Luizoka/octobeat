@@ -18,7 +18,8 @@ function formatDuration(seconds) {
 export function SetupScreen({
   song, analysis, title, subtitle, difficulty, onDifficulty, charts, sourceMode, onSourceMode,
   selectedTrackIds, playedTrackIds = [], onToggleTrack, audioTrackIds, onToggleAudio, audioMode, onAudioMode,
-  previewPlaying, midiBusy, audioStatus, onPreview, onStopPreview, onPlay, onBack, onSettings, status,
+  previewPlaying, midiBusy, audioStatus, onPreview, onStopPreview, onPlay, onPlayFullscreen, mustRotate,
+  onBack, onSettings, status,
 }) {
   const isMidi = song?.source?.format === "MIDI";
   const bpm = song?.tempoChanges[0]?.bpm;
@@ -106,7 +107,15 @@ export function SetupScreen({
       <div className="play-bar">
         {status && <span className="play-status">{status}</span>}
         {midiBusy && <span className="play-status"><span className="loading-spinner" /> {audioStatus}</span>}
-        <button className="play-button" type="button" onClick={onPlay} disabled={!canPlay}>▶ Jogar</button>
+        {mustRotate && !status && !midiBusy && <span className="play-status rotate-status">↻ Para jogar, gire o celular na horizontal</span>}
+        {onPlayFullscreen ? (
+          <>
+            <button className="ghost-action" type="button" onClick={onPlay} disabled={!canPlay}>Sem tela cheia</button>
+            <button className="play-button" type="button" onClick={onPlayFullscreen} disabled={!canPlay}>▶ Jogar em tela cheia</button>
+          </>
+        ) : (
+          <button className="play-button" type="button" onClick={onPlay} disabled={!canPlay}>▶ Jogar</button>
+        )}
       </div>
 
       {song && (
