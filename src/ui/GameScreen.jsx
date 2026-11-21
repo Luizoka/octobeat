@@ -200,7 +200,7 @@ const FloatHud = memo(function FloatHud({ stats, fever, paused, pauseDisabled, o
         <div className="float-progress" aria-hidden="true"><span className="js-progress" /></div>
       </div>
       <div className="float-side float-right">
-        <div className="float-stat"><strong className={`float-multiplier tier-${tierOf(stats.combo)}`}>×{comboMultiplier(stats.combo)}</strong><span>multiplicador</span></div>
+        <div className="float-stat"><strong className={`float-multiplier tier-${tierOf(stats.combo)}`}>×{comboMultiplier(stats.combo)}</strong><span>mult.</span></div>
         <div className="float-stat"><strong className={`float-rank rank-${rank}`}>{rank}</strong><span>nota</span></div>
         {fever && <div className="fever-badge">FEVER</div>}
       </div>
