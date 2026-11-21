@@ -97,3 +97,13 @@ test("reduzir movimento desliga tremor e reduz partículas", () => {
   assert.ok(effects.particleScale < 1);
   assert.equal(loadSettings(memoryStorage(), { prefersReducedMotion: true }).reducedMotion, true);
 });
+
+test("no celular as partículas saem em menor quantidade; o resto dos efeitos não muda", () => {
+  const settings = sanitizeSettings({});
+  const desktop = effectiveEffects(settings);
+  const touch = effectiveEffects(settings, { touch: true });
+  assert.ok(touch.particleScale < desktop.particleScale);
+  assert.ok(touch.particleScale > 0);
+  assert.equal(touch.shake, desktop.shake);
+  assert.equal(touch.laneBeams, desktop.laneBeams);
+});

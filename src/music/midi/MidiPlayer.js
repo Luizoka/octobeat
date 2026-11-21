@@ -7,7 +7,8 @@ const FALLBACK_INSTRUMENT = "acoustic_grand_piano";
 // por um timer na thread principal. Com o padrão (200 ms), qualquer travada da
 // tela maior que isso atrasa as notas e a música "engasga". Com 1 s de folga, o
 // áudio já está nas mãos do Web Audio (que roda em outra thread) bem antes.
-// Pausar/parar descarta o player inteiro, então a folga maior não atrapalha.
+// Pausar/parar limpa a fila do Scheduler e cancela as vozes já agendadas (ver
+// `halt`), então a folga maior não atrapalha.
 const AUDIO_LOOKAHEAD_MS = 1000;
 // As notas são entregues ao smplr aos poucos (janela de FEED_HORIZON_S à frente),
 // em vez de as ~6000 notas de uma música inteira no instante em que ela começa.
@@ -37,44 +38,60 @@ export class MidiPlayer {
     this.scheduler = null;
     this.queues = null;
     this.feedTimer = null;
+    this.activeIds = new Set(); // tracks que tocam (a seleção "Ouvir" pode mudar)
+    this.loading = new Map(); // track → carregamento em andamento (não carrega duas vezes)
   }
 
+  /**
+   * Carrega os instrumentos das tracks pedidas. Instrumentos já carregados são
+   * reaproveitados: pausar, retomar e reiniciar não baixam nada de novo.
+   */
   async prepare(trackIds, audioMode = "piano-focus") {
     if (!this.context) this.context = new AudioContext();
     // Uma fila só para todos os instrumentos (em vez de um timer por instrumento).
     this.scheduler ??= Scheduler(this.context, { lookaheadMs: AUDIO_LOOKAHEAD_MS, intervalMs: 50 });
     await this.context.resume();
     const tracks = this.song.tracks.filter((track) => trackIds.includes(track.id) && track.notes.length);
-    this.onStatus?.(`Carregando SoundFont (${tracks.length} instrumentos)...`);
-    let loaded = 0;
-    await Promise.all(tracks.map(async (track) => {
-      if (this.players.has(track.id) || this.disposed) return;
-      const gain = this.context.createGain();
-      gain.connect(this.context.destination);
-      const family = track.family || classifyMidiTrack(track.playback);
-      const player = Soundfont(this.context, { instrument: soundfontName(track), destination: gain, scheduler: this.scheduler });
-      try {
-        await player.ready;
-      } catch {
-        // Um preset ausente não pode silenciar a música inteira.
-        player.dispose?.();
-        if (this.disposed) { gain.disconnect(); return; }
-        const fallback = Soundfont(this.context, { instrument: FALLBACK_INSTRUMENT, destination: gain, scheduler: this.scheduler });
-        await fallback.ready;
-        if (this.disposed) { fallback.dispose?.(); gain.disconnect(); return; }
-        this.players.set(track.id, { player: fallback, gain, family });
-        loaded += 1;
-        this.onStatus?.(`Carregando instrumentos: ${loaded}/${tracks.length}`);
-        return;
-      }
-      if (this.disposed) { player.dispose?.(); gain.disconnect(); return; }
-      this.players.set(track.id, { player, gain, family });
-      loaded += 1;
-      this.onStatus?.(`Carregando instrumentos: ${loaded}/${tracks.length}`);
-    }));
+    this.activeIds = new Set(tracks.map((track) => track.id));
+    const missing = tracks.filter((track) => !this.players.has(track.id));
+    if (missing.length) {
+      this.onStatus?.(`Carregando SoundFont (${missing.length} instrumentos)...`);
+      let loaded = 0;
+      await Promise.all(missing.map((track) => {
+        if (!this.loading.has(track.id)) {
+          this.loading.set(track.id, this.loadTrack(track).finally(() => this.loading.delete(track.id)));
+        }
+        return this.loading.get(track.id).then(() => {
+          loaded += 1;
+          this.onStatus?.(`Carregando instrumentos: ${loaded}/${missing.length}`);
+        });
+      }));
+    }
     if (this.disposed) throw new Error("Carregamento do MIDI cancelado.");
     this.setMix(audioMode);
-    this.onStatus?.("SoundFont pronto.");
+    if (missing.length) this.onStatus?.("SoundFont pronto.");
+  }
+
+  async loadTrack(track) {
+    if (this.players.has(track.id) || this.disposed) return;
+    const gain = this.context.createGain();
+    gain.connect(this.context.destination);
+    const family = track.family || classifyMidiTrack(track.playback);
+    const player = Soundfont(this.context, { instrument: soundfontName(track), destination: gain, scheduler: this.scheduler });
+    try {
+      await player.ready;
+    } catch {
+      // Um preset ausente não pode silenciar a música inteira.
+      player.dispose?.();
+      if (this.disposed) { gain.disconnect(); return; }
+      const fallback = Soundfont(this.context, { instrument: FALLBACK_INSTRUMENT, destination: gain, scheduler: this.scheduler });
+      await fallback.ready;
+      if (this.disposed) { fallback.dispose?.(); gain.disconnect(); return; }
+      this.players.set(track.id, { player: fallback, gain, family });
+      return;
+    }
+    if (this.disposed) { player.dispose?.(); gain.disconnect(); return; }
+    this.players.set(track.id, { player, gain, family });
   }
 
   setMix(mode) {
@@ -94,13 +111,13 @@ export class MidiPlayer {
 
   async play(position = this.position) {
     await this.context.resume();
-    this.stopVoices();
-    this.stopFeeding();
+    this.halt();
     this.position = position;
     this.startedAt = this.context.currentTime - position;
     // Por track: notas ordenadas e o índice da próxima a entregar.
     this.queues = new Map();
     this.players.forEach((_, trackId) => {
+      if (!this.activeIds.has(trackId)) return;
       const track = this.song.tracks.find((item) => item.id === trackId);
       const notes = (track?.notes ?? []).filter((note) => note.start + note.duration > position);
       this.queues.set(trackId, { notes, next: 0 });
@@ -135,22 +152,33 @@ export class MidiPlayer {
     this.feedTimer = null;
   }
 
+  /**
+   * Posição da música em segundos. NÃO trava em `song.duration`: o jogo só
+   * termina quando o relógio passa do fim da última nota (+0,5 s), e essa nota
+   * costuma terminar junto com o MIDI. Travado, a partida nunca acabava.
+   */
   currentTime() {
-    return this.playing ? Math.min(this.song.duration, Math.max(0, this.context.currentTime - this.startedAt)) : this.position;
+    return this.playing ? Math.max(0, this.context.currentTime - this.startedAt) : this.position;
   }
 
-  pause() {
-    this.position = this.currentTime();
+  /**
+   * Para o som na hora, sem descartar os instrumentos carregados: limpa as notas
+   * ainda na fila do Scheduler e cancela as vozes já entregues ao Web Audio
+   * (inclusive as agendadas para daqui a pouco). Guarda a posição.
+   */
+  halt() {
+    if (this.playing) this.position = this.currentTime();
     this.stopFeeding();
-    this.stopVoices();
+    this.scheduler?.stop();
+    if (this.context) this.stopVoices();
     this.playing = false;
   }
+
+  pause() { this.halt(); }
 
   stop() {
-    this.stopFeeding();
-    this.stopVoices();
+    this.halt();
     this.position = 0;
-    this.playing = false;
   }
 
   stopVoices() { this.players.forEach(({ player }) => player.stop()); }
