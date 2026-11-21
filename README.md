@@ -25,11 +25,26 @@ As 8 colunas usam `A`, `S`, `D`, `F`, `J`, `K`, `L` e `Ç`.
 
 Em teclados sem `Ç`, a ultima coluna tambem aceita `;`.
 
+No celular/tablet, toque direto nas colunas da pista (a coluna inteira vale, não só a tecla desenhada). Vários dedos ao mesmo tempo funcionam para acordes, e nas notas longas é só manter o dedo na coluna. Arrastar o dedo para outra coluna conta como soltar. Deslizar não acerta notas. O mouse também funciona na pista.
+
+## Celular
+
+- **Jogue na horizontal.** Em celular em pé, a partida não começa e aparece o aviso "Gire o celular para jogar". Girar no meio da partida pausa o jogo. Tablets em pé (lado curto ≥ 600 px) podem jogar.
+- **Tela cheia.** Em celulares/tablets, a tela de preparação oferece "Jogar em tela cheia". Onde o navegador deixa, o jogo também tenta travar a tela na horizontal (`screen.orientation.lock`).
+- **Limitações reais do navegador:**
+  - Um site **não consegue girar a tela sozinho**. O bloqueio de orientação só funciona em tela cheia e em navegadores que suportam a Screen Orientation API (na prática, Chrome/Edge/Samsung Internet no Android).
+  - No **iPhone (Safari)** não há tela cheia para páginas nem bloqueio de orientação. O botão de tela cheia não aparece e o jogo mostra o aviso para girar manualmente. Para jogar sem a barra do Safari, use *Compartilhar → Adicionar à Tela de Início*.
+  - Se a tela não girar, confira se a rotação automática do aparelho está ligada.
+  - O áudio só começa depois de um toque (regra dos navegadores móveis). Por isso, se o jogo esperar o aparelho girar, aparece o botão "Começar". No iPhone com a chave de silêncio ligada, o som depende do Safari 16.4+ (`navigator.audioSession`).
+- **Interrupções.** Trocar de app, bloquear a tela, receber ligação, sair da tela cheia ou girar para retrato pausa a partida. Se isso acontecer na contagem, ela é cancelada. Toques cancelados pelo sistema soltam a coluna, para nenhuma nota ficar presa.
+- Para testar no celular na mesma rede: `npm run play` e abra o endereço de rede exibido pelo Vite.
+
 ## Estado atual
 
 - Projeto Node com Vite + React.
 - Jogo com 8 colunas e notas caindo.
-- Teclado com deteccao de acerto, erro, pontuacao e combo.
+- Teclado, toque (multitouch) e mouse com deteccao de acerto, erro, pontuacao e combo.
+- Layout para celular na horizontal (tela cheia quando o navegador permite).
 - Fase demo sincronizada com uma musica sintetizada via Web Audio.
 - Importacao de fases JSON no jogo.
 - Audio local no jogo para tocar fases importadas.
