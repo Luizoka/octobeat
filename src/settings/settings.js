@@ -78,11 +78,18 @@ export function saveSettings(storage, settings) {
   } catch { /* Sem storage: as preferências valem só nesta sessão. */ }
 }
 
-/** Efeitos realmente aplicados, considerando "reduzir movimento". */
-export function effectiveEffects(settings) {
+// No celular as partículas são o efeito mais caro (medido: ~13% da thread
+// principal com CPU 4× mais lenta). Lá saem em menor quantidade.
+export const TOUCH_PARTICLE_FACTOR = 0.55;
+
+/**
+ * Efeitos realmente aplicados, considerando "reduzir movimento" e, no celular
+ * (`touch`), uma carga menor de partículas.
+ */
+export function effectiveEffects(settings, { touch = false } = {}) {
   const reduced = settings.reducedMotion;
   return {
-    particleScale: PARTICLE_LEVELS[settings.particles] * (reduced ? 0.4 : 1),
+    particleScale: PARTICLE_LEVELS[settings.particles] * (reduced ? 0.4 : 1) * (touch ? TOUCH_PARTICLE_FACTOR : 1),
     shake: settings.shake && !reduced ? settings.shakeIntensity : 0,
     missFlash: settings.missFlash,
     fever: settings.feverEffects,
