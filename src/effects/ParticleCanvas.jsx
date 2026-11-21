@@ -15,7 +15,10 @@ export const ParticleCanvas = forwardRef(function ParticleCanvas(_props, ref) {
     if (!canvas || !parent) return undefined;
     const resize = () => {
       const s = state.current;
-      s.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Faíscas não precisam de retina. No celular (dpr 3) o canvas em 1× tem
+      // 9× menos pixels para limpar e pintar a cada quadro.
+      const touch = window.matchMedia?.("(pointer: coarse)").matches;
+      s.dpr = touch ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       s.width = parent.clientWidth;
       s.height = parent.clientHeight;
       canvas.width = Math.round(s.width * s.dpr);

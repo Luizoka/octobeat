@@ -14,8 +14,8 @@ const FIRE_COLORS = ["#ffe08a", "#ffab40", "#ff6a2b", "#e8341c"];
  * Concentra todos os efeitos de "game feel": partículas, tremor, flash,
  * textos de julgamento, faixas de combo e sons. Lê as preferências do jogador.
  */
-export function useGameEffects(settings, trackRef) {
-  const effects = useMemo(() => effectiveEffects(settings), [settings]);
+export function useGameEffects(settings, trackRef, { touch = false } = {}) {
+  const effects = useMemo(() => effectiveEffects(settings, { touch }), [settings, touch]);
   const effectsRef = useRef(effects);
   useEffect(() => { effectsRef.current = effects; }, [effects]);
 
