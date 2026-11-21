@@ -862,14 +862,14 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 /* ── Celular: HUD flutuante (só aparece no layout horizontal compacto) ───── */
 .float-hud { display: none; position: absolute; inset: 0; pointer-events: none; }
-.float-side { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; gap: 12px; width: calc(var(--side) - 10px); padding: 2px 0 4px; }
+.float-side { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; gap: 10px; width: calc(var(--side) - 8px); padding: 2px 0 4px; }
 .float-left { left: 0; align-items: flex-start; }
 .float-right { right: 0; align-items: flex-end; text-align: right; }
 .float-pause { pointer-events: auto; margin-bottom: 4px; background: rgba(20, 27, 45, 0.85); }
 .float-stat { display: grid; gap: 1px; line-height: 1.1; }
-.float-stat strong { font-size: 1.15rem; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.float-stat span { color: var(--muted); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.float-multiplier, .float-rank { font-size: 1.9rem !important; font-style: italic; color: var(--muted); }
+.float-stat strong { font-size: 1rem; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.float-stat span { color: var(--muted); font-size: 0.56rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.float-multiplier, .float-rank { font-size: 1.6rem !important; font-style: italic; color: var(--muted); }
 .float-multiplier.tier-1 { color: var(--cyan); }
 .float-multiplier.tier-2 { color: var(--gold); }
 .float-multiplier.tier-3 { color: #ff7de0; }
@@ -976,8 +976,9 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .game-screen, .game-stage, .game-center { height: 100%; }
   .game-stage { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 0; }
   .side-panel, .game-hud { display: none; }
-  .game-center { --side: clamp(84px, 14vw, 150px); position: relative; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 0; }
-  .track { width: min(680px, calc(100% - 2 * var(--side))); height: 100%; min-height: 0; max-height: none; }
+  /* Laterais estreitas: só o necessário para os números caberem. */
+  .game-center { --side: clamp(64px, 10vw, 104px); position: relative; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 0; }
+  .track { width: min(780px, calc(100% - 2 * var(--side))); height: 100%; min-height: 0; max-height: none; }
   .float-hud { display: block; }
   .combo-display { top: 16%; }
   .combo-display strong { font-size: clamp(2.2rem, 13vh, 4rem); }
