@@ -10,6 +10,8 @@ import { selectGameplayTracks } from "./music-analysis/selectGameplayTracks.js";
 import { adaptNotesForHands } from "./game/adaptNotesForHands.js";
 import { holdEnd, holdHeat, holdPositions, isEpicHold, isHold, resolveHold } from "./game/holdNotes.js";
 import { HIT_LINE_OFFSET, keyToLane } from "./game/keys.js";
+import { createLaneInput, holdLane, isLaneHeld, keySource, laneFromX, pointerSource, releaseAll, releaseSource } from "./game/laneInput.js";
+import { MUST_ROTATE_QUERY, TOUCH_QUERY, enterLandscapeFullscreen, fullscreenSupported, isFullscreen, onFullscreenChange, useMediaQuery } from "./ui/device.js";
 import { applyHit, applyHoldResults, applyMiss, createStats, crossedMilestone, isFever } from "./game/scoring.js";
 import { loadSettings, sanitizeSettings, saveSettings } from "./settings/settings.js";
 import { useGameEffects } from "./effects/useGameEffects.js";
@@ -18,6 +20,7 @@ import { DIFFICULTIES, SetupScreen } from "./ui/SetupScreen.jsx";
 import { GameScreen } from "./ui/GameScreen.jsx";
 import { ResultsScreen } from "./ui/ResultsScreen.jsx";
 import { SettingsPanel } from "./ui/SettingsPanel.jsx";
+import { RotateOverlay } from "./ui/RotateOverlay.jsx";
 const FALL_DURATION = 1.55; // segundos que uma nota leva do topo até a linha
 const MISS_WINDOW = 0.22; // segundos depois da linha em que a nota vira erro
 const RESULTS_DELAY = 1200; // ms entre a última nota e a tela de resultado
@@ -142,6 +145,17 @@ export default function App() {
   const [notes, setNotes] = useState([]);
   const [pressedLanes, setPressedLanes] = useState([]);
   const [stats, setStats] = useState(createStats);
+  // Celular em pé (ou partida interrompida antes de começar): a fase espera um
+  // toque em "Começar" — o toque também libera o áudio no navegador móvel.
+  const [awaitingStart, setAwaitingStart] = useState(false);
+
+  // ── Dispositivo ─────────────────────────────────────────────────────────
+  const touchDevice = useMediaQuery(TOUCH_QUERY);
+  const mustRotate = useMediaQuery(MUST_ROTATE_QUERY);
+  const [fullscreenActive, setFullscreenActive] = useState(isFullscreen);
+  // Nos menus, o jogador pode dispensar o aviso de girar (vale até recarregar).
+  const [portraitAllowed, setPortraitAllowed] = useState(false);
+  const canFullscreen = touchDevice && fullscreenSupported();
 
   const trackRef = useRef(null);
   const animationRef = useRef(0);
@@ -151,7 +165,9 @@ export default function App() {
   const statsRef = useRef(stats);
   const endTimeRef = useRef(0);
   const pausedAtRef = useRef(0);
-  const heldKeysRef = useRef(new Set());
+  const laneInputRef = useRef(createLaneInput()); // teclas e dedos segurando cada lane
+  const startingRef = useRef(null); // "start" | "resume" enquanto carrega/conta antes de jogar
+  const mustRotateRef = useRef(mustRotate);
   const screenRef = useRef(screen);
   const pausedRef = useRef(paused);
   const audioContextRef = useRef(null);
@@ -164,8 +180,9 @@ export default function App() {
   const startSequenceRef = useRef(0);
   const phaseSourceRef = useRef("demo");
   const finishTimerRef = useRef(0);
+  const progressRef = useRef(-1);
 
-  const fx = useGameEffects(settings, trackRef);
+  const fx = useGameEffects(settings, trackRef, { touch: touchDevice });
   const { onHit, onMiss, onStray, onHoldSpark, onHoldEnd, onMilestone, onFever, reset: resetEffects, warmup: warmupEffects, stageRef } = fx;
   const songAnalysis = useMemo(() => importedSong ? analyzeSong(importedSong) : null, [importedSong]);
   const holdingLanes = useMemo(() => new Set(notes.filter((note) => note.holdState === "holding").map((note) => note.key)), [notes]);
@@ -175,6 +192,7 @@ export default function App() {
 
   useEffect(() => { screenRef.current = screen; }, [screen]);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
+  useEffect(() => { mustRotateRef.current = mustRotate; }, [mustRotate]);
   useEffect(() => { saveSettings(safeStorage(), settings); }, [settings]);
   useEffect(() => { midiPlayerRef.current?.setMasterVolume(settings.masterVolume); }, [settings.masterVolume]);
 
@@ -203,13 +221,13 @@ export default function App() {
   }, []);
 
   const stopMidiAudio = useCallback(() => {
-    // Notas do SoundFont são agendadas no futuro. Descartar o contexto é a forma
-    // confiável de cancelar também esses eventos, antes de uma nova execução.
+    // Para o som na hora (inclusive notas já agendadas), mas mantém os
+    // instrumentos carregados: pausar, retomar e reiniciar não recarregam o
+    // SoundFont. O player só é descartado quando a música muda.
     midiOperationRef.current += 1;
     midiBusyRef.current = false;
     setMidiBusy(false);
-    midiPlayerRef.current?.dispose();
-    midiPlayerRef.current = null;
+    midiPlayerRef.current?.halt();
   }, []);
 
   const waitForCountdown = useCallback(async (sequence) => {
@@ -243,9 +261,15 @@ export default function App() {
       await player.prepare(audioTrackIds, audioMode);
       if (operation !== midiOperationRef.current || player !== midiPlayerRef.current) return false;
       if (beforePlay && !await beforePlay()) return false;
+      // Interrompido durante a contagem (pausa, giro, troca de app).
+      if (operation !== midiOperationRef.current) return false;
       player.setMasterVolume(settings.masterVolume);
       player.setMix(audioMode);
       await player.play(position);
+      if (operation !== midiOperationRef.current) {
+        player.halt();
+        return false;
+      }
       return true;
     } finally {
       if (operation === midiOperationRef.current) {
@@ -279,6 +303,16 @@ export default function App() {
     });
   }, [settings.masterVolume, stopDemoSong]);
 
+  /**
+   * Cria/retoma o AudioContext do sintetizador ainda dentro do toque/clique.
+   * No Safari (iOS) um contexto criado depois da contagem nasceria mudo.
+   */
+  const unlockDemoAudio = useCallback(() => {
+    if (typeof AudioContext === "undefined") return;
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+    audioContextRef.current.resume?.().catch?.(() => {});
+  }, []);
+
   // ── Motor do jogo ───────────────────────────────────────────────────────
   const buildNotes = useCallback((chart) => {
     const next = makePlayableNotes(adaptNotesForHands(chart, settings.handMode));
@@ -290,12 +324,15 @@ export default function App() {
   /** Para tudo e volta ao estado inicial de uma partida. */
   const resetEngine = useCallback(() => {
     startSequenceRef.current += 1;
+    startingRef.current = null;
+    progressRef.current = -1;
     window.clearTimeout(finishTimerRef.current);
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
     stopMidiAudio();
     midiPausedPositionRef.current = 0;
     setMidiPreviewPlaying(false);
+    setAwaitingStart(false);
     setCountdown(null);
     setPlaying(false);
     playingRef.current = false;
@@ -377,7 +414,14 @@ export default function App() {
     }
 
     const end = endTimeRef.current;
-    stageRef.current?.style.setProperty("--progress", String(end > 0 ? Math.min(1, Math.max(0, time / end)) : 0));
+    // Barra de progresso: transform direto nas barras, e só quando muda 0,1%.
+    // (Uma variável CSS no contêiner do jogo recalculava o estilo de todos os
+    // elementos da pista a cada quadro — o maior custo no celular.)
+    const progress = end > 0 ? Math.round(Math.min(1, Math.max(0, time / end)) * 1000) / 1000 : 0;
+    if (progress !== progressRef.current) {
+      progressRef.current = progress;
+      stageRef.current?.querySelectorAll(".js-progress").forEach((bar) => { bar.style.transform = `scaleX(${progress})`; });
+    }
 
     if (next.length && next.every(isResolved) && time > end + 0.5) {
       finishGame();
@@ -398,24 +442,33 @@ export default function App() {
       setScreen("setup");
       return;
     }
+    startingRef.current = "start";
 
+    // O AudioContext é criado/retomado antes do 1º await: ainda dentro do toque.
     if (source === "song" && importedSong?.source?.format === "MIDI") {
       try {
         const started = await playMidi(0, () => waitForCountdown(sequence));
         if (!started) return;
       } catch (error) {
+        // Cancelado de propósito (giro, troca de app): o carregamento falha, mas não é erro.
+        if (sequence !== startSequenceRef.current) return;
+        startingRef.current = null;
         setSetupStatus(error instanceof Error ? error.message : "Não foi possível carregar o SoundFont.");
         setScreen("setup");
         return;
       }
     } else {
+      unlockDemoAudio();
       if (!await waitForCountdown(sequence)) return;
       startDemoSong(nextNotes, 0);
     }
+    // Interrompida (giro, troca de app) entre a contagem e o play.
+    if (sequence !== startSequenceRef.current) return;
+    startingRef.current = null;
     setPlaying(true);
     playingRef.current = true;
     animationRef.current = requestAnimationFrame(tick);
-  }, [buildNotes, importedSong, playMidi, resetEngine, startDemoSong, tick, waitForCountdown, warmupEffects]);
+  }, [buildNotes, importedSong, playMidi, resetEngine, startDemoSong, tick, unlockDemoAudio, waitForCountdown, warmupEffects]);
 
   /** Resolve os holds sendo segurados (por soltar a tecla ou ao retomar a pausa). */
   const resolveHolding = useCallback((shouldRelease, time) => {
@@ -445,29 +498,58 @@ export default function App() {
   }, [gameTime, stopDemoSong, stopMidiAudio]);
 
   const resumeGame = useCallback(async () => {
-    if (!pausedRef.current || midiBusyRef.current) return;
+    if (!pausedRef.current || midiBusyRef.current || mustRotateRef.current) return;
     const sequence = startSequenceRef.current;
     const at = pausedAtRef.current;
     setPaused(false);
-    // Hold cuja tecla foi solta durante a pausa conta como solto naquele instante.
-    resolveHolding((lane) => !heldKeysRef.current.has(lane), at);
+    startingRef.current = "resume";
+    // Hold cuja tecla/dedo foi solto durante a pausa conta como solto naquele instante.
+    resolveHolding((lane) => !isLaneHeld(laneInputRef.current, lane), at);
     if (phaseSourceRef.current === "song" && importedSong?.source?.format === "MIDI") {
       try {
         const started = await playMidi(at, () => waitForCountdown(sequence));
         if (!started) return;
       } catch (error) {
+        if (sequence !== startSequenceRef.current) return;
+        startingRef.current = null;
         setSetupStatus(error instanceof Error ? error.message : "Não foi possível retomar o áudio.");
         setPaused(true);
         return;
       }
     } else {
+      unlockDemoAudio();
       if (!await waitForCountdown(sequence)) return;
       startDemoSong(notesRef.current, at);
     }
+    if (sequence !== startSequenceRef.current) return;
+    startingRef.current = null;
     setPlaying(true);
     playingRef.current = true;
     animationRef.current = requestAnimationFrame(tick);
-  }, [importedSong, playMidi, resolveHolding, startDemoSong, tick, waitForCountdown]);
+  }, [importedSong, playMidi, resolveHolding, startDemoSong, tick, unlockDemoAudio, waitForCountdown]);
+
+  /**
+   * Para o que estiver acontecendo de forma previsível: partida rodando vira
+   * pausa; partida carregando/em contagem é cancelada (início volta para o botão
+   * "Começar"; retomada volta para o menu de pausa, na mesma posição).
+   */
+  const interruptGame = useCallback(() => {
+    if (playingRef.current) {
+      pauseGame();
+      return;
+    }
+    if (startingRef.current === "resume") {
+      startingRef.current = null;
+      startSequenceRef.current += 1; // cancela a contagem em andamento
+      stopMidiAudio();
+      stopDemoSong();
+      setCountdown(null);
+      setPaused(true);
+    } else if (startingRef.current === "start") {
+      resetEngine();
+      setAwaitingStart(true);
+    }
+  }, [pauseGame, resetEngine, stopDemoSong, stopMidiAudio]);
 
   const pressLane = useCallback((lane) => {
     setPressedLanes((current) => current.includes(lane) ? current : [...current, lane]);
@@ -517,6 +599,24 @@ export default function App() {
     resolveHolding((key) => lane === null || key === lane, gameTime());
   }, [gameTime, resolveHolding]);
 
+  // Os listeners nativos leem as versões atuais por ref: re-registrar no meio de
+  // um toque faria o dedo "sumir" sem soltar o hold.
+  const pressLaneRef = useRef(pressLane);
+  const releaseLaneRef = useRef(releaseLane);
+  const interruptGameRef = useRef(interruptGame);
+  useEffect(() => {
+    pressLaneRef.current = pressLane;
+    releaseLaneRef.current = releaseLane;
+    interruptGameRef.current = interruptGame;
+  }, [interruptGame, pressLane, releaseLane]);
+
+  /** Larga todas as teclas/dedos e interrompe (pausa ou cancela a contagem). */
+  const interruptAndRelease = useCallback(() => {
+    releaseAll(laneInputRef.current);
+    interruptGameRef.current();
+  }, []);
+
+  // ── Teclado ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement) return;
@@ -530,33 +630,113 @@ export default function App() {
       const lane = keyToLane(event);
       if (lane === -1) return;
       event.preventDefault();
-      heldKeysRef.current.add(lane);
-      pressLane(lane);
+      holdLane(laneInputRef.current, keySource(lane), lane);
+      pressLaneRef.current(lane);
     };
     const onKeyUp = (event) => {
       const lane = keyToLane(event);
       if (lane === -1) return;
-      heldKeysRef.current.delete(lane);
-      releaseLane(lane);
+      const freed = releaseSource(laneInputRef.current, keySource(lane));
+      if (freed !== -1) releaseLaneRef.current(freed);
     };
-    // Perder o foco (trocar de aba/janela) pausa a partida.
-    const onBlur = () => {
-      heldKeysRef.current.clear();
-      pauseGame();
-    };
+    // Perder o foco (trocar de aba/app, bloquear a tela, ligação) pausa a partida.
+    const onBlur = () => { if (screenRef.current === "game") interruptAndRelease(); };
     const onVisibility = () => { if (document.hidden) onBlur(); };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
+    window.addEventListener("pagehide", onBlur);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pagehide", onBlur);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [pauseGame, pressLane, releaseLane, resumeGame]);
+  }, [interruptAndRelease, pauseGame, resumeGame]);
+
+  // ── Toque e mouse na pista (pointer events, multitouch) ─────────────────
+  useEffect(() => {
+    if (screen !== "game") return undefined;
+    const track = trackRef.current;
+    if (!track) return undefined;
+    const input = laneInputRef.current;
+
+    // Geometria em cache (medir a cada toque forçaria layout no meio do jogo).
+    // O tremor desloca a pista em poucos px, sem mudar a coluna tocada.
+    let box = null;
+    const laneAt = (event) => {
+      if (!box) {
+        const rect = track.getBoundingClientRect();
+        box = { left: rect.left + track.clientLeft, width: track.clientWidth };
+      }
+      return laneFromX(event.clientX - box.left, box.width);
+    };
+    const invalidate = () => { box = null; };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(invalidate);
+    observer?.observe(track);
+
+    const release = (source) => {
+      const freed = releaseSource(input, source);
+      if (freed !== -1) releaseLaneRef.current(freed);
+    };
+    const onPointerDown = (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      // Botões dentro da pista ("Começar") recebem o toque normalmente.
+      if (event.target instanceof Element && event.target.closest("[data-lane-input='off']")) return;
+      const lane = laneAt(event);
+      if (lane === -1) return;
+      event.preventDefault(); // sem seleção de texto, foco ou eventos de mouse emulados
+      try { track.setPointerCapture(event.pointerId); } catch { /* ponteiro já encerrado */ }
+      const source = pointerSource(event.pointerId);
+      const previous = holdLane(input, source, lane);
+      if (previous !== -1) releaseLaneRef.current(previous);
+      pressLaneRef.current(lane);
+    };
+    // Arrastar o dedo para outra coluna (ou para fora da pista) conta como soltar.
+    // Não toca a coluna nova: deslizar pelas colunas não vale como acerto.
+    const onPointerMove = (event) => {
+      const source = pointerSource(event.pointerId);
+      if (input.has(source) && laneAt(event) !== input.get(source)) release(source);
+    };
+    const onPointerEnd = (event) => release(pointerSource(event.pointerId));
+    // Toque longo (hold) não deve abrir menu de contexto nem lupa.
+    const onContextMenu = (event) => event.preventDefault();
+
+    track.addEventListener("pointerdown", onPointerDown);
+    track.addEventListener("pointermove", onPointerMove);
+    track.addEventListener("pointerup", onPointerEnd);
+    track.addEventListener("pointercancel", onPointerEnd);
+    track.addEventListener("lostpointercapture", onPointerEnd);
+    track.addEventListener("contextmenu", onContextMenu);
+    window.addEventListener("resize", invalidate);
+    return () => {
+      track.removeEventListener("pointerdown", onPointerDown);
+      track.removeEventListener("pointermove", onPointerMove);
+      track.removeEventListener("pointerup", onPointerEnd);
+      track.removeEventListener("pointercancel", onPointerEnd);
+      track.removeEventListener("lostpointercapture", onPointerEnd);
+      track.removeEventListener("contextmenu", onContextMenu);
+      window.removeEventListener("resize", invalidate);
+      observer?.disconnect();
+      [...input.keys()].filter((source) => source.startsWith("pointer:")).forEach((source) => input.delete(source));
+    };
+  }, [screen]);
+
+  // ── Orientação e tela cheia ─────────────────────────────────────────────
+  // Girar para retrato ou sair da tela cheia no meio da partida pausa (ou
+  // cancela a contagem). Só reage à mudança, não a cada render.
+  useEffect(() => {
+    if (mustRotate && screenRef.current === "game") interruptAndRelease();
+  }, [interruptAndRelease, mustRotate]);
+
+  useEffect(() => onFullscreenChange(() => {
+    const active = isFullscreen();
+    setFullscreenActive(active);
+    if (!active && screenRef.current === "game") interruptAndRelease();
+  }), [interruptAndRelease]);
 
   useEffect(() => () => {
     cancelAnimationFrame(animationRef.current);
@@ -680,18 +860,37 @@ export default function App() {
     setScreen("setup");
   }
 
-  function playSelected() {
-    const chart = setupCharts[difficulty]?.chart ?? [];
+  /**
+   * Entra na tela de jogo. Precisa rodar dentro do toque/clique: tela cheia e o
+   * áudio no celular só são liberados por um gesto do usuário. Em retrato, a
+   * fase fica esperando o aparelho girar e um toque em "Começar".
+   */
+  async function beginGame(chart, source, { fullscreen = false } = {}) {
     if (!chart.length) return;
     setPhaseNotes(chart);
     setScreen("game");
-    startGame(chart, phaseSource);
+    if (fullscreen) {
+      const entering = enterLandscapeFullscreen();
+      // Só espera quando o bloqueio pode resolver o retrato (Chrome Android).
+      // Esperar à toa tiraria o início do áudio de dentro do gesto (Safari).
+      if (mustRotateRef.current && (await entering).locked) mustRotateRef.current = false;
+    }
+    if (mustRotateRef.current) {
+      resetEngine();
+      setAwaitingStart(true);
+      return;
+    }
+    startGame(chart, source);
+  }
+
+  function playSelected({ fullscreen = false } = {}) {
+    beginGame(setupCharts[difficulty]?.chart ?? [], phaseSource, { fullscreen });
   }
 
   function restartGame() {
-    setScreen("game");
-    startGame(phaseNotes, phaseSource);
+    beginGame(phaseNotes, phaseSource);
   }
+
 
   const difficultyLabel = DIFFICULTIES.find((option) => option.id === difficulty)?.label ?? "";
   const title = phaseSource === "song" && importedSong ? importedSong.title : "Fase demo";
@@ -734,7 +933,9 @@ export default function App() {
           audioStatus={midiAudioStatus}
           onPreview={previewMidi}
           onStopPreview={stopMidiPreview}
-          onPlay={playSelected}
+          onPlay={() => playSelected()}
+          onPlayFullscreen={canFullscreen && !fullscreenActive ? () => playSelected({ fullscreen: true }) : null}
+          mustRotate={mustRotate}
           onBack={goHome}
           onSettings={() => setSettingsOpen(true)}
           status={setupCharts[difficulty]?.count === 0 ? "Nenhuma nota com essa combinação. Tente outra fonte ou escolha tracks em Avançado." : phaseSource === "song" ? setupStatus : ""}
@@ -756,6 +957,9 @@ export default function App() {
           loadingText={midiAudioStatus}
           paused={paused}
           finished={finished}
+          awaitingStart={awaitingStart && !mustRotate}
+          onStart={restartGame}
+          touchDevice={touchDevice}
           settingsOpen={settingsOpen}
           onPause={pauseGame}
           onResume={resumeGame}
@@ -775,6 +979,15 @@ export default function App() {
           onReplay={restartGame}
           onSetup={() => openSetup(phaseSource)}
           onHome={goHome}
+        />
+      )}
+
+      {mustRotate && (screen === "game" || !portraitAllowed) && (
+        <RotateOverlay
+          inGame={screen === "game"}
+          onRotate={canFullscreen ? enterLandscapeFullscreen : null}
+          onExit={() => openSetup(phaseSource)}
+          onDismiss={() => setPortraitAllowed(true)}
         />
       )}
 

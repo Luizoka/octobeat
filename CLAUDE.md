@@ -23,7 +23,8 @@ Responda e escreva comentários em português.
 - `src/chart/chartQuality.js` — métricas de qualidade de chart.
 - `src/game/adaptNotesForHands.js` — adapta para uma mão.
 - `src/App.jsx` — controlador: motor do jogo (tick, input, holds, áudio MIDI/sintetizador, pausa) e navegação entre telas.
-- `src/ui/` — telas: `HomeScreen` → `SetupScreen` → `GameScreen` → `ResultsScreen`, e `SettingsPanel` (modal).
+- `src/ui/` — telas: `HomeScreen` → `SetupScreen` → `GameScreen` → `ResultsScreen`, `SettingsPanel` (modal) e `RotateOverlay` (celular em pé). `device.js`: media queries, tela cheia e bloqueio de orientação.
+- `src/game/laneInput.js` — entrada unificada: teclado e toque (pointer events) registram quem segura cada lane; a lane só é solta quando a última fonte sai. `App.jsx` liga os pointer events na `.track`.
 - `src/game/scoring.js` — pontos, combo, multiplicador/Fever (×2 em 25, ×3 em 50, ×4 em 100), nota final S–D.
 - `src/settings/settings.js` — preferências (um objeto em `localStorage["octobeat.settings"]`, migra chaves antigas).
 - `src/effects/` — partículas (canvas), sons de acerto, `useGameEffects` (tremor, flash, textos, faixas de combo).
@@ -50,6 +51,10 @@ Medido com Chrome + GPU via Playwright (scripts em scratchpad, não versionados)
 - **React:** só desenhar notas visíveis (`gone` / `y > -80`); notas se movem por `transform`, nunca `top`.
 - **CSS na pista:** não animar `filter`, `box-shadow` ou `scale` em elementos com sombra desfocada; não usar `var()` dentro de `@keyframes`; preferir `opacity`/`transform` com `will-change`. Sem `backdrop-filter` sobre a pista.
 - **1ª vez de cada efeito** custa 100–450 ms de GPU (preparar o efeito). `EffectsWarmup` em `GameScreen.jsx` desenha cópias invisíveis durante a contagem — todo efeito visual novo deve entrar lá.
+- **Nada de variável CSS mudando a cada quadro em contêiner** (ex.: `--progress` no `.game-stage`): invalida o estilo de toda a pista. A barra de progresso recebe `transform` direto (`.js-progress`). Medido: recálculo de estilo caiu ~3×.
+- `GameScreen` renderiza a cada quadro; HUD, painéis, HUD flutuante e colunas são `memo` (colunas recebem as lanes como texto). Não passar objetos/Sets novos por quadro para eles.
+- Partículas são o efeito mais caro no celular: lá o canvas usa dpr 1 e `TOUCH_PARTICLE_FACTOR` reduz a quantidade.
+- `MidiPlayer`: pausar/reiniciar usam `halt()` (limpa a fila do Scheduler + `stop()` das vozes); não descartar o player, senão o SoundFont é baixado de novo. `currentTime()` não pode travar em `song.duration` (a partida nunca terminava).
 - `npm run dev` (React em modo desenvolvimento) é bem mais lento; para jogar de verdade: `npm run play`.
 
 ## Diagnóstico (por que os charts ficam ruins)
