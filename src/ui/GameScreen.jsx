@@ -9,6 +9,7 @@ const ENTERED_Y = -80;
 const isOnStage = (note) => !note.gone && note.y > ENTERED_Y;
 
 const HAND_HINT = { left: "Prepare ASDF", right: "Prepare JKLÇ", both: "Prepare as duas mãos" };
+const TOUCH_HINT = { left: "Toque nas 4 colunas da esquerda", right: "Toque nas 4 colunas da direita", both: "Toque nas colunas quando a nota chegar na linha" };
 const TIERS_ASCENDING = [...MULTIPLIER_TIERS].reverse(); // 25 → ×2, 50 → ×3, 100 → ×4
 
 function multiplierProgress(combo) {
@@ -20,7 +21,7 @@ function multiplierProgress(combo) {
 
 export function GameScreen({
   title, difficultyLabel, notes, holdingLanes, fireLanes, pressedLanes, stats, handMode, countdown, loading, loadingText,
-  paused, finished, settingsOpen, onPause, onResume, onRestart, onExit, onSettings, trackRef, fx,
+  paused, finished, awaitingStart, onStart, touchDevice, settingsOpen, onPause, onResume, onRestart, onExit, onSettings, trackRef, fx,
 }) {
   const multiplier = comboMultiplier(stats.combo);
   const fever = fx.effects.fever && isFever(stats.combo);
@@ -65,7 +66,7 @@ export function GameScreen({
             <strong>{stats.score.toLocaleString("pt-BR")}</strong>
             <span>{accuracy}% precisão</span>
           </div>
-          <button className="icon-button hud-pause" type="button" onClick={paused ? onResume : onPause} disabled={loading || countdown !== null || finished} aria-label={paused ? "Continuar" : "Pausar (Esc)"} title="Pausar (Esc)">
+          <button className="icon-button hud-pause" type="button" onClick={paused ? onResume : onPause} disabled={loading || countdown !== null || finished || awaitingStart} aria-label={paused ? "Continuar" : "Pausar (Esc)"} title="Pausar (Esc)">
             {paused ? "▶" : "❚❚"}
           </button>
           <div className="hud-progress" aria-hidden="true"><span /></div>
@@ -129,7 +130,14 @@ export function GameScreen({
           {countdown !== null && (
             <div className="track-overlay countdown-overlay" role="status">
               <strong key={countdown}>{countdown}</strong>
-              <span>{HAND_HINT[handMode]}</span>
+              <span>{(touchDevice ? TOUCH_HINT : HAND_HINT)[handMode]}</span>
+            </div>
+          )}
+          {awaitingStart && !loading && countdown === null && (
+            <div className="track-overlay start-overlay" data-lane-input="off">
+              <strong className="overlay-title">Pronto?</strong>
+              <span>{(touchDevice ? TOUCH_HINT : HAND_HINT)[handMode]}</span>
+              <button className="play-button" type="button" onClick={onStart} autoFocus>▶ Começar</button>
             </div>
           )}
           {loading && countdown === null && (
@@ -172,7 +180,7 @@ export function GameScreen({
             <button className="menu-button" type="button" onClick={onRestart}>↻ Reiniciar</button>
             <button className="menu-button" type="button" onClick={onSettings}>⚙ Configurações</button>
             <button className="menu-button" type="button" onClick={onExit}>← Sair da fase</button>
-            <small>Esc também continua</small>
+            {!touchDevice && <small>Esc também continua</small>}
           </div>
         </div>
       )}

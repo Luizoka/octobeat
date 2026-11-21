@@ -14,6 +14,18 @@
   --purple: #8b5cf6;
   --red: #ff3b5c;
   --radius: 14px;
+  /* Bordas seguras (notch, barra de gestos). Zero fora de celulares. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+html {
+  /* Sem "puxar para atualizar" nem efeito elástico no meio de uma partida. */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 * { box-sizing: border-box; }
@@ -21,6 +33,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh; /* altura útil real no celular (sem as barras do navegador) */
   background:
     radial-gradient(circle at 10% -10%, rgba(39, 217, 209, 0.14), transparent 30rem),
     radial-gradient(circle at 100% 110%, rgba(139, 92, 246, 0.14), transparent 30rem),
@@ -30,18 +43,29 @@ body {
 }
 
 button, select, input { font: inherit; color: inherit; }
-button { cursor: pointer; border: 0; }
+button { cursor: pointer; border: 0; touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: 0.55; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-#root { min-height: 100vh; }
+#root { min-height: 100vh; min-height: 100dvh; }
 
 .app-shell {
-  width: min(980px, calc(100vw - 32px));
+  --gutter: 16px;
+  width: 100%;
+  max-width: calc(980px + 2 * var(--gutter));
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 18px 0 32px;
+  padding:
+    calc(18px + var(--safe-top))
+    max(var(--gutter), var(--safe-right))
+    calc(32px + var(--safe-bottom))
+    max(var(--gutter), var(--safe-left));
 }
-.app-shell.screen-game { width: min(1340px, calc(100vw - 32px)); padding: 10px 0; }
+.app-shell.screen-game {
+  max-width: calc(1340px + 2 * var(--gutter));
+  padding-top: calc(10px + var(--safe-top));
+  padding-bottom: calc(10px + var(--safe-bottom));
+}
 
 .screen { animation: screen-in 260ms ease-out; }
 @keyframes screen-in { from { opacity: 0; transform: translateY(8px); } }
@@ -72,7 +96,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   box-shadow: 0 6px 0 #138a85, 0 12px 30px rgba(39, 217, 209, 0.25);
   transition: transform 90ms ease, box-shadow 90ms ease, filter 120ms ease;
 }
-.play-button:hover:not(:disabled) { filter: brightness(1.08); }
+@media (hover: hover) { .play-button:hover:not(:disabled) { filter: brightness(1.08); } }
 .play-button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #138a85, 0 6px 16px rgba(39, 217, 209, 0.2); }
 
 .menu-button, .ghost-action, .back-button {
@@ -84,7 +108,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   background: var(--panel-2);
   transition: background 120ms ease, border-color 120ms ease;
 }
-.menu-button:hover:not(:disabled), .ghost-action:hover:not(:disabled), .back-button:hover { border-color: var(--cyan); background: #222d45; }
+@media (hover: hover) { .menu-button:hover:not(:disabled), .ghost-action:hover:not(:disabled), .back-button:hover { border-color: var(--cyan); background: #222d45; } }
 .back-button { background: transparent; }
 
 .icon-button {
@@ -97,7 +121,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   font-size: 1.15rem;
   background: var(--panel);
 }
-.icon-button:hover:not(:disabled) { border-color: var(--cyan); }
+@media (hover: hover) { .icon-button:hover:not(:disabled) { border-color: var(--cyan); } }
 
 .loading-spinner {
   display: inline-block;
@@ -144,7 +168,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   cursor: pointer;
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
-.home-card:hover:not(:disabled):not(.is-disabled) { transform: translateY(-3px); border-color: var(--cyan); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35); }
+@media (hover: hover) { .home-card:hover:not(:disabled):not(.is-disabled) { transform: translateY(-3px); border-color: var(--cyan); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35); } }
 .home-card strong { font-size: 1.2rem; }
 .home-card small { color: var(--muted); line-height: 1.4; }
 .home-card input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -209,7 +233,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .difficulty-card small { color: var(--muted); }
 .difficulty-stats { margin-top: 6px; color: var(--muted); font-size: 0.85rem; }
 .difficulty-stats b { color: var(--text); }
-.difficulty-card:hover { transform: translateY(-2px); }
+@media (hover: hover) { .difficulty-card:hover { transform: translateY(-2px); } }
 .difficulty-easy { --accent: var(--green); }
 .difficulty-normal { --accent: var(--cyan); }
 .difficulty-hard { --accent: var(--coral); }
@@ -224,7 +248,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .play-bar {
   position: sticky;
-  bottom: 12px;
+  bottom: calc(12px + var(--safe-bottom));
   z-index: 3;
   display: flex;
   align-items: center;
@@ -238,6 +262,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   backdrop-filter: blur(8px);
 }
 .play-status { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; color: var(--muted); font-size: 0.9rem; }
+.rotate-status { color: var(--gold); font-weight: 700; }
 
 .advanced { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
 .advanced summary { padding: 14px 18px; color: var(--muted); font-weight: 700; cursor: pointer; }
@@ -257,7 +282,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .advanced-note { margin: 0; color: var(--muted); font-size: 0.85rem; }
 
 /* ── Jogo: HUD ──────────────────────────────────────────────────────────── */
-.game-screen { position: relative; }
+.game-screen { position: relative; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .game-stage {
   --progress: 0;
   display: grid;
@@ -322,7 +347,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 @media (max-width: 1180px) {
   .game-stage { grid-template-columns: minmax(0, 1fr); }
   .side-panel { display: none; }
-  .app-shell.screen-game { width: min(760px, calc(100vw - 32px)); }
+  .app-shell.screen-game { max-width: calc(760px + 2 * var(--gutter)); }
 }
 .game-hud {
   display: grid;
@@ -351,6 +376,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 14px repeat(4, minmax(0, 1fr));
   height: calc(100vh - 110px);
+  height: calc(100dvh - 110px - var(--safe-top) - var(--safe-bottom));
   min-height: 460px;
   max-height: 860px;
   overflow: hidden;
@@ -358,6 +384,11 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   border-radius: var(--radius);
   background: linear-gradient(180deg, rgba(39, 217, 209, 0.04), transparent 35%), #0a0f1e;
   transition: box-shadow 300ms ease, border-color 300ms ease;
+  /* Toque vai direto para o jogo: sem rolar, dar zoom, selecionar ou abrir a lupa. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .track::before {
   content: "";
@@ -630,7 +661,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   z-index: 30;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left));
   background: rgba(5, 8, 18, 0.72);
   backdrop-filter: blur(6px);
   animation: fade-in 160ms ease-out;
@@ -654,7 +685,9 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .settings-panel {
   width: min(620px, 100%);
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
   overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--panel);
@@ -718,7 +751,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .switch:checked::after { transform: translateX(20px); }
 
 /* ── Resultado ──────────────────────────────────────────────────────────── */
-.results-screen { display: grid; place-items: center; min-height: calc(100vh - 50px); }
+.results-screen { display: grid; place-items: center; min-height: calc(100vh - 50px); min-height: calc(100dvh - 50px - var(--safe-top) - var(--safe-bottom)); }
 .results-card {
   display: grid;
   justify-items: center;
@@ -731,6 +764,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
 }
+.results-summary, .results-details { display: grid; justify-items: center; gap: 8px; width: 100%; }
 .results-card h2 { margin: 0; overflow-wrap: anywhere; }
 .rank {
   font-size: 7rem;
@@ -818,7 +852,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .song-card-preview { grid-column: 1 / -1; }
   .difficulty-cards { grid-template-columns: 1fr; }
   .play-bar { flex-wrap: wrap; }
-  .play-bar .play-button { width: 100%; }
+  .play-bar .play-button, .play-bar .ghost-action { width: 100%; }
   .game-hud { grid-template-columns: 1fr auto; }
   .hud-score { justify-items: start; grid-row: 2; }
   .lane span { width: 32px; height: 34px; }
@@ -826,3 +860,112 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 }
 
 .error-detail { display: block; width: 100%; padding: 10px; overflow-wrap: anywhere; border-radius: 8px; color: var(--coral); font-size: 0.82rem; text-align: left; background: var(--bg-2); }
+
+/* ── Celular: começar, girar, toque ─────────────────────────────────────── */
+.start-overlay .play-button { margin-top: 6px; }
+
+.rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: max(24px, var(--safe-top)) max(24px, var(--safe-right)) max(24px, var(--safe-bottom)) max(24px, var(--safe-left));
+  text-align: center;
+  background: var(--bg);
+  touch-action: manipulation;
+}
+.rotate-overlay h2 { margin: 0; font-size: 1.5rem; }
+.rotate-overlay p { max-width: 320px; margin: 0; color: var(--muted); line-height: 1.4; }
+.rotate-overlay .rotate-hint { font-size: 0.85rem; }
+.rotate-phone {
+  position: relative;
+  width: 46px;
+  height: 76px;
+  margin-bottom: 8px;
+  border: 3px solid var(--cyan);
+  border-radius: 10px;
+  animation: rotate-phone 2.4s ease-in-out infinite;
+}
+.rotate-phone span { position: absolute; bottom: 5px; left: 50%; width: 12px; height: 3px; border-radius: 2px; background: var(--cyan); transform: translateX(-50%); }
+@keyframes rotate-phone { 0%, 25% { transform: rotate(0); } 55%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+
+/* Alvos de toque maiores onde o ponteiro é o dedo. */
+@media (pointer: coarse) {
+  .track-row input { width: 24px; height: 24px; }
+  .segmented.small button { min-height: 40px; }
+  .advanced summary { padding: 16px 18px; }
+}
+
+/* ── Celular na horizontal (e janelas baixas) ───────────────────────────── */
+/* Vem depois de "Telas pequenas" para ganhar dela: na horizontal a largura sobra
+   e a altura é o que falta. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .app-shell { padding-top: calc(10px + var(--safe-top)); padding-bottom: calc(14px + var(--safe-bottom)); }
+  .screen-header { min-height: 40px; margin-bottom: 6px; }
+
+  /* Início: logo ao lado do título, cartões mais baixos. */
+  .home-hero { grid-template-columns: auto auto; justify-content: center; align-items: center; justify-items: start; column-gap: 16px; row-gap: 2px; margin: 0 0 14px; text-align: left; }
+  .home-logo { grid-row: span 2; width: 76px; }
+  .home-hero h1 { font-size: 2.4rem; }
+  .home-hero p { font-size: 0.95rem; }
+  .home-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .home-card { min-height: 0; gap: 4px; padding: 14px; }
+  .home-card-icon { width: 34px; height: 34px; margin-bottom: 2px; font-size: 1.1rem; }
+  .home-status { margin-top: 10px; }
+
+  /* Preparar */
+  .song-card { gap: 12px; padding: 12px; }
+  .song-card-art { width: 52px; height: 52px; font-size: 1.4rem; }
+  .song-card-copy h2 { font-size: 1.2rem; }
+  .section-title { margin: 14px 0 8px; }
+  .difficulty-cards { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .difficulty-card { padding: 10px 12px; }
+  .play-bar { flex-wrap: nowrap; margin-top: 14px; padding: 8px 8px 8px 14px; }
+  .play-bar .play-button { width: auto; }
+  .play-button { min-height: 46px; }
+
+  /* Pausa em duas colunas para caber na altura. */
+  .pause-menu { grid-template-columns: 1fr 1fr; gap: 8px; width: min(460px, 100%); max-height: 100%; overflow: auto; padding: 16px; }
+  .pause-menu h2, .pause-menu .play-button, .pause-menu small { grid-column: 1 / -1; }
+  .pause-menu h2 { margin: 0; font-size: 1.4rem; }
+
+  /* Resultado em duas colunas. */
+  .results-screen { min-height: 0; }
+  .results-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: center; gap: 12px 20px; width: min(820px, 100%); padding: 16px 18px; }
+  .rank { font-size: 4.6rem; }
+  .results-score strong { font-size: 1.8rem; }
+  .results-grid div { min-width: 90px; padding: 6px 8px; }
+  .results-breakdown { margin: 4px 0; }
+  .results-breakdown li { padding: 6px 12px; }
+  .results-actions { grid-template-columns: 1fr 1fr; margin-top: 4px; }
+  .results-actions .play-button { grid-column: 1 / -1; }
+
+  /* Jogo: o HUD vira uma coluna à esquerda e a pista ocupa a altura toda. */
+  .app-shell.screen-game {
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    padding: max(6px, var(--safe-top)) max(8px, var(--safe-right)) max(6px, var(--safe-bottom)) max(8px, var(--safe-left));
+  }
+  .game-screen, .game-stage, .game-center { height: 100%; }
+  .game-stage { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 0; }
+  .side-panel { display: none; }
+  .game-center { grid-template-columns: clamp(96px, 16vw, 150px) minmax(0, 1fr); gap: 8px; }
+  .game-hud { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; align-content: start; gap: 10px; padding: 10px 10px 16px; }
+  .hud-pause { grid-row: 1; justify-self: start; }
+  .hud-song { grid-row: 2; }
+  .hud-song strong { font-size: 0.85rem; }
+  .hud-score { grid-row: 3; justify-items: start; }
+  .hud-score strong { font-size: 1.3rem; }
+  .track { height: 100%; min-height: 0; max-height: none; }
+  .combo-display { top: 16%; }
+  .combo-display strong { font-size: clamp(2.2rem, 13vh, 4rem); }
+  .countdown-overlay strong { font-size: clamp(3rem, 28vh, 7rem); }
+  .judgement-popup { bottom: 104px; font-size: clamp(1.1rem, 7vh, 1.8rem); }
+  .combo-banner { font-size: clamp(1.1rem, 8vh, 2rem); }
+  .banner-break { font-size: clamp(0.9rem, 6vh, 1.3rem); }
+}

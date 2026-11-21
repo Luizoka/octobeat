@@ -22,7 +22,8 @@ Responda e escreva comentários em português.
 - `src/chart/chartQuality.js` — métricas de qualidade de chart.
 - `src/game/adaptNotesForHands.js` — adapta para uma mão.
 - `src/App.jsx` — controlador: motor do jogo (tick, input, holds, áudio MIDI/sintetizador, pausa) e navegação entre telas.
-- `src/ui/` — telas: `HomeScreen` → `SetupScreen` → `GameScreen` → `ResultsScreen`, e `SettingsPanel` (modal).
+- `src/ui/` — telas: `HomeScreen` → `SetupScreen` → `GameScreen` → `ResultsScreen`, `SettingsPanel` (modal) e `RotateOverlay` (celular em pé). `device.js`: media queries, tela cheia e bloqueio de orientação.
+- `src/game/laneInput.js` — entrada unificada: teclado e toque (pointer events) registram quem segura cada lane; a lane só é solta quando a última fonte sai. `App.jsx` liga os pointer events na `.track`.
 - `src/game/scoring.js` — pontos, combo, multiplicador/Fever (×2 em 25, ×3 em 50, ×4 em 100), nota final S–D.
 - `src/settings/settings.js` — preferências (um objeto em `localStorage["octobeat.settings"]`, migra chaves antigas).
 - `src/effects/` — partículas (canvas), sons de acerto, `useGameEffects` (tremor, flash, textos, faixas de combo).
