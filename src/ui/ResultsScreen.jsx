@@ -21,32 +21,36 @@ export function ResultsScreen({ stats, title, difficultyLabel, onReplay, onSetup
   return (
     <section className="screen results-screen" aria-label="Resultado">
       <div className="results-card">
-        <span className="eyebrow">{difficultyLabel}</span>
-        <h2>{title}</h2>
-        <div className={`rank rank-${rank}`} aria-label={`Nota ${rank}`}>{rank}</div>
-        <p className="rank-text">{RANK_TEXT[rank]}</p>
+        <div className="results-summary">
+          <span className="eyebrow">{difficultyLabel}</span>
+          <h2>{title}</h2>
+          <div className={`rank rank-${rank}`} aria-label={`Nota ${rank}`}>{rank}</div>
+          <p className="rank-text">{RANK_TEXT[rank]}</p>
 
-        <div className="results-score">
-          <strong>{stats.score.toLocaleString("pt-BR")}</strong>
-          <span>pontos</span>
+          <div className="results-score">
+            <strong>{stats.score.toLocaleString("pt-BR")}</strong>
+            <span>pontos</span>
+          </div>
         </div>
 
-        <div className="results-grid">
-          <div><b>{stats.maxCombo}</b><span>combo máximo</span></div>
-          <div><b>{accuracy}%</b><span>precisão</span></div>
-          {(stats.holdsComplete + stats.holdsDropped) > 0 && <div><b>{stats.holdsComplete}/{stats.holdsComplete + stats.holdsDropped}</b><span>notas longas</span></div>}
-        </div>
+        <div className="results-details">
+          <div className="results-grid">
+            <div><b>{stats.maxCombo}</b><span>combo máximo</span></div>
+            <div><b>{accuracy}%</b><span>precisão</span></div>
+            {(stats.holdsComplete + stats.holdsDropped) > 0 && <div><b>{stats.holdsComplete}/{stats.holdsComplete + stats.holdsDropped}</b><span>notas longas</span></div>}
+          </div>
 
-        <ul className="results-breakdown">
-          {rows.map(([label, value, kind]) => (
-            <li key={kind} className={`breakdown-${kind}`}><span>{label}</span><b>{value}</b></li>
-          ))}
-        </ul>
+          <ul className="results-breakdown">
+            {rows.map(([label, value, kind]) => (
+              <li key={kind} className={`breakdown-${kind}`}><span>{label}</span><b>{value}</b></li>
+            ))}
+          </ul>
 
-        <div className="results-actions">
-          <button className="play-button" type="button" onClick={onReplay} autoFocus>↻ Jogar de novo</button>
-          <button className="menu-button" type="button" onClick={onSetup}>Trocar dificuldade</button>
-          <button className="menu-button" type="button" onClick={onHome}>Outra música</button>
+          <div className="results-actions">
+            <button className="play-button" type="button" onClick={onReplay} autoFocus>↻ Jogar de novo</button>
+            <button className="menu-button" type="button" onClick={onSetup}>Trocar dificuldade</button>
+            <button className="menu-button" type="button" onClick={onHome}>Outra música</button>
+          </div>
         </div>
       </div>
     </section>
