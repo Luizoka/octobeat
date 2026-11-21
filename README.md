@@ -30,7 +30,7 @@ Em teclados sem `Ç`, a ultima coluna tambem aceita `;`.
 - Projeto Node com Vite + React.
 - Jogo com 8 colunas e notas caindo.
 - Teclado com deteccao de acerto, erro, pontuacao e combo.
-- Fase demo sincronizada com uma musica sintetizada via Web Audio.
+- Quatro músicas prontas na tela inicial (pasta `songs/`, catálogo em `src/songs/catalog.js`).
 - Importacao de fases JSON no jogo.
 - Audio local no jogo para tocar fases importadas.
 - Dificuldades leve, normal e rapida.

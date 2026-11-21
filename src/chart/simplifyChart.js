@@ -1,5 +1,5 @@
 import { CHART_DIFFICULTY } from "../music-analysis/config.js";
-import { beatStrength, buildMeasureMap, buildTempoMap, isOnGrid, quantizeBeat, secondsToBeats } from "./beatGrid.js";
+import { BEAT_STRENGTH, beatStrength, buildMeasureMap, buildTempoMap, getMeasurePosition, isOnGrid, quantizeBeat, secondsToBeats } from "./beatGrid.js";
 
 const CHORD_TOLERANCE = 0.035; // segundos
 // Grade fina (1/12 de beat cobre semicolcheias e tercinas) usada para medir o
@@ -47,12 +47,20 @@ export function simplifyChart(notes, difficulty = "normal", { tempoChanges, time
   const groups = groupByOnset(notes).map((group, index) => {
     const beat = secondsToBeats(group.time, tempoMap);
     const onGrid = isOnGrid(beat, settings.subdivision);
+    const { measure, segment } = getMeasurePosition(beat, measureMap);
+    const rawStrength = beatStrength(beat, measureMap);
     return {
       ...group,
       index,
       beat,
+      measure,
+      // Teto de onsets por compasso: proporcional ao tamanho do compasso em beats.
+      measureCap: Number.isFinite(settings.maxOnsetsPerBeat) ? Math.max(1, Math.round(settings.maxOnsetsPerBeat * segment.measureLength)) : Infinity,
       gridBeat: quantizeBeat(beat, SPACING_GRID),
-      strength: beatStrength(beat, measureMap) * (onGrid ? 1 : settings.offGridPenalty),
+      strength: rawStrength * (onGrid ? 1 : settings.offGridPenalty),
+      // Fora de qualquer grade conhecida (MIDI deslocado do compasso) não dá para
+      // saber se é tempo forte: a regra de acordes não se aplica.
+      chordLimited: rawStrength > BEAT_STRENGTH.offGrid && rawStrength < (settings.chordMinStrength ?? 0) - 1e-9,
       loudness: Math.max(...group.notes.map((note) => note.velocity ?? 0.8)),
     };
   });
@@ -63,15 +71,26 @@ export function simplifyChart(notes, difficulty = "normal", { tempoChanges, time
   const fits = (candidate, neighbor) => !neighbor || (
     Math.abs(candidate.gridBeat - neighbor.gridBeat) >= settings.minSpacingBeats - 1e-6
     && Math.abs(candidate.time - neighbor.time) >= settings.minSeconds - 1e-6);
+  // Densidade: cada compasso aceita no máximo `measureCap` onsets. Como a fila
+  // vai do mais forte para o mais fraco, os cortados são os menos importantes.
+  const perMeasure = new Map();
   byPriority.forEach((group) => {
+    if ((perMeasure.get(group.measure) ?? 0) >= group.measureCap) return;
     const position = lowerBound(accepted, group.beat);
-    if (fits(group, accepted[position - 1]) && fits(group, accepted[position])) accepted.splice(position, 0, group);
+    if (fits(group, accepted[position - 1]) && fits(group, accepted[position])) {
+      accepted.splice(position, 0, group);
+      perMeasure.set(group.measure, (perMeasure.get(group.measure) ?? 0) + 1);
+    }
   });
 
-  return accepted.flatMap((group) => group.notes
+  // Acordes só em tempos fortes o bastante: em contratempos com notas a menos de
+  // 1 beat (trecho rápido), uma nota só. Acorde sincopado com espaço continua.
+  const crowded = (group, index) => [accepted[index - 1], accepted[index + 1]]
+    .some((neighbor) => neighbor && Math.abs(neighbor.gridBeat - group.gridBeat) < 1 - 1e-6);
+  return accepted.flatMap((group, groupIndex) => group.notes
     .sort((a, b) => (b.velocity ?? 0.8) - (a.velocity ?? 0.8) || b.pitch - a.pitch)
     .filter((note, index, all) => all.findIndex((item) => item.key === note.key) === index)
-    .slice(0, settings.maxChord)
+    .slice(0, group.chordLimited && crowded(group, groupIndex) ? 1 : settings.maxChord)
     // `sourceDuration` é interno: usado por applyHolds e removido antes do chart final.
     .map((note) => ({ time: Number(note.time.toFixed(3)), key: note.key, ...(note.duration > 0 ? { sourceDuration: note.duration } : {}) }))
     .sort((a, b) => a.key - b.key));

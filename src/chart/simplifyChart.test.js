@@ -18,9 +18,32 @@ test("contratempo não rouba o tempo forte seguinte (bug do filtro guloso)", () 
 });
 
 test("normal e difícil diferem pela subdivisão", () => {
-  const sixteenths = Array.from({ length: 16 }, (_, index) => at(index / 4, index % 8));
+  // Um beat de semicolcheias por compasso (abaixo do teto de densidade).
+  const sixteenths = [0, 4, 8, 12].flatMap((measure) => [0, 0.25, 0.5, 0.75].map((offset) => at(measure + offset, (measure + offset * 4) % 8)));
   assert.equal(simplifyChart(sixteenths, "normal").length, 8);
   assert.equal(simplifyChart(sixteenths, "hard").length, 16);
+});
+
+test("teto de densidade por compasso fica com as notas mais fortes", () => {
+  // Compasso 4/4 cheio de semicolcheias: normal aceita 1,25 onset/beat = 5.
+  const sixteenths = Array.from({ length: 16 }, (_, index) => at(index / 4, index % 8));
+  const normal = beatsOf(simplifyChart(sixteenths, "normal"));
+  assert.equal(normal.length, 5);
+  [0, 1, 2, 3].forEach((beat) => assert.ok(normal.includes(beat), `tempo ${beat} mantido`));
+  assert.equal(simplifyChart(sixteenths, "hard").length, 12);
+});
+
+test("normal: acorde em contratempo apertado vira nota simples", () => {
+  const chord = (beat) => [at(beat, 1), at(beat, 5)];
+  const chart = simplifyChart([...chord(0), ...chord(1.5), ...chord(2)], "normal");
+  assert.equal(chart.filter((note) => note.time === 0).length, 2);
+  assert.equal(chart.filter((note) => note.time === 0.75).length, 1);
+});
+
+test("normal: acorde sincopado com espaço em volta continua acorde", () => {
+  const chord = (beat) => [at(beat, 1), at(beat, 5)];
+  const chart = simplifyChart([...chord(0), ...chord(1.5), ...chord(4)], "normal");
+  assert.equal(chart.filter((note) => note.time === 0.75).length, 2);
 });
 
 test("piso em segundos protege músicas muito rápidas", () => {

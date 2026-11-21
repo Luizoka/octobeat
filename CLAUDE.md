@@ -17,7 +17,8 @@ Responda e escreva comentários em português.
 - `src/music-analysis/config.js` — também guarda `CHART_DIFFICULTY` (densidade por dificuldade em beats).
 - `src/chart/beatGrid.js` — segundos ↔ beats, compassos, quantização, `beatStrength`.
 - `src/chart/generateChart.js` — gera o chart.
-- `src/chart/mapPitchToLane.js` — mapeia pitch para coluna.
+- `src/chart/mapPitchToLane.js` — mapeia pitch para coluna (faixa por percentis 5–95%, não min–max).
+- `src/chart/breakJacks.js` — nota repetida rápida (< 0,25 s) alterna com a coluna vizinha da mesma mão.
 - `src/chart/simplifyChart.js` — simplifica por dificuldade (prioridade por força rítmica + espaçamento em beats).
 - `src/chart/chartQuality.js` — métricas de qualidade de chart.
 - `src/game/adaptNotesForHands.js` — adapta para uma mão.
@@ -30,8 +31,8 @@ Responda e escreva comentários em português.
 ## Ferramentas
 
 - `npm test` — testes (node --test). Rodar sempre após mudanças.
-- Música de exemplo do site: `Deltarune Chapter 5 - Flower Man.mid` (raiz). A antiga (vs Susie) foi para `test-songs/`.
-- `npm run eval:charts` — roda o pipeline sobre `test-songs/` + o MIDI de exemplo da raiz e compara com `test-songs/baseline.json` (▲ melhor / ▼ pior).
+- Músicas do jogo: `songs/` (nome `<jogo>-<musica>.mid`, minúsculas e hífen), listadas em `src/songs/catalog.js` (título/artista exibidos vêm de lá). Hoje: Flower Man, Cutie Mew Mew Magic, Chaos King, Death by Glamour. A antiga (vs Susie) está em `test-songs/`. A fase demo está escondida da tela inicial (código ainda existe em `App.jsx`).
+- `npm run eval:charts` — roda o pipeline sobre `test-songs/` + `songs/` e compara com `test-songs/baseline.json` (▲ melhor / ▼ pior).
 - `npm run eval:charts -- --save` — regrava o baseline. O baseline atual é o estado **anterior ao Passo 1**; só regravar quando o usuário pedir.
 - `npm run eval:songs` — regenera os MIDIs sintéticos (determinístico).
 - O corpus tem só 1 música real; as sintéticas reproduzem problemas específicos. Mais MIDIs reais em `test-songs/` deixam a avaliação mais confiável.
@@ -54,7 +55,7 @@ Medido com Chrome + GPU via Playwright (scripts em scratchpad, não versionados)
 ## Diagnóstico (por que os charts ficam ruins)
 
 1. ~~**Simplificação em segundos, não em tempo musical.**~~ Resolvido no Passo 1.
-2. **Mapeamento de lane linear global.** `mapPitchToLane` usa min–max de pitch da música inteira; uma nota extrema comprime a melodia em 2–3 colunas e gera repetições monótonas. Padrões repetidos (arpejos) caem sempre na mesma lane.
+2. **Mapeamento de lane linear global.** Parcial: a faixa agora usa percentis (notas extremas isoladas não comprimem mais) e notas repetidas rápidas viram alternância (`breakJacks`). Ainda é global (não por janela/contorno); arpejos repetidos ainda caem nas mesmas lanes.
 3. ~~**Modo Essência escolhe uma única track.**~~ Resolvido: `selectMelodySegments` escolhe a melodia por blocos de 4 compassos (Viterbi com custo de troca). O `scoreTrack` ainda pode preferir um arpejo denso à melodia (ex.: balada sintética).
 4. **Modo Piano mistura todas as tracks de piano** (mão esquerda + direita + acordes) num único filtro.
 5. ~~**Duração das notas é ignorada.**~~ Resolvido no Passo 5 (holds).
@@ -69,6 +70,8 @@ Medido com Chrome + GPU via Playwright (scripts em scratchpad, não versionados)
 - `simplifyChart` processa onsets do mais forte para o mais fraco e aceita se respeitar o espaçamento mínimo em beats (easy 1, normal 1/2, hard 1/4).
 
 ### Passo 2 — Seleção por importância
+Parcial: teto de densidade por compasso (`maxOnsetsPerBeat`) e acordes só em tempo forte quando o trecho é rápido (`chordMinStrength`), em `CHART_DIFFICULTY`. Falta a fórmula de importância abaixo.
+
 Estender a prioridade atual (só `beatStrength` + volume) para:
 
 ```js
@@ -90,6 +93,7 @@ Por janela (ex.: 1 compasso), escolher as notas de maior importância até ating
 
 ### Passo 4 — Melodia por segmento (parcial ✅)
 - Feito: blocos de 4 compassos + custo de troca (`src/music-analysis/selectMelodySegments.js`, pesos em `MELODY_SEGMENTS`). Corrigiu ~48 s mudos na Flower Man.
+- Feito: cobertura por bloco (track com buracos perde `gapPenalty`) e *fill* — buraco ≥ 4 beats dentro do trecho de uma track é preenchido pela melhor outra track de registro parecido (segmentos com `fill: true`). Corrigiu os trechos mudos de Cutie Mew Mew e Chaos King.
 - Falta: skyline e separar mão direita/esquerda no modo Piano.
 - Dividir a música em segmentos de 2–4 compassos e reaproveitar `scoreTrack` por segmento.
 - Alternativa/complemento: algoritmo *skyline* (nota mais aguda por instante) sobre as tracks melódicas candidatas.

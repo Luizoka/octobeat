@@ -147,6 +147,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .home-card:hover:not(:disabled):not(.is-disabled) { transform: translateY(-3px); border-color: var(--cyan); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35); }
 .home-card strong { font-size: 1.2rem; }
 .home-card small { color: var(--muted); line-height: 1.4; }
+.home-card .home-card-vibe { color: var(--text); opacity: 0.8; font-size: 0.85rem; }
+.home-section-title { margin: 22px 0 10px; color: var(--muted); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .home-card input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .home-card:focus-within { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .home-card.is-disabled { opacity: 0.55; cursor: not-allowed; }

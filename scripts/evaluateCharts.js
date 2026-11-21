@@ -5,7 +5,7 @@
 //   node scripts/evaluateCharts.js --baseline x.json
 //   node scripts/evaluateCharts.js --json          # imprime o resultado bruto em JSON
 //
-// Corpus: todos os .mid/.midi de test-songs/ + o MIDI de demonstração na raiz.
+// Corpus: todos os .mid/.midi de test-songs/ + as músicas do jogo em songs/.
 // MusicXML é ignorado aqui porque o importador depende de DOMParser (só existe no navegador).
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -17,7 +17,7 @@ import { evaluateChart } from "../src/chart/chartQuality.js";
 
 const ROOT = process.cwd();
 const SONG_DIR = join(ROOT, "test-songs");
-const DEMO_MIDI = join(ROOT, "Deltarune Chapter 5 - Flower Man.mid");
+const GAME_SONG_DIR = join(ROOT, "songs");
 const DEFAULT_BASELINE = join(SONG_DIR, "baseline.json");
 const MODES = ["essence", "piano"];
 const DIFFICULTIES = ["easy", "normal", "hard"];
@@ -49,12 +49,14 @@ function parseArgs(argv) {
   return args;
 }
 
-function listSongs() {
-  const files = existsSync(SONG_DIR)
-    ? readdirSync(SONG_DIR).filter((file) => /\.(mid|midi)$/i.test(file)).sort().map((file) => join(SONG_DIR, file))
+function listMidis(dir) {
+  return existsSync(dir)
+    ? readdirSync(dir).filter((file) => /\.(mid|midi)$/i.test(file)).sort().map((file) => join(dir, file))
     : [];
-  if (existsSync(DEMO_MIDI)) files.push(DEMO_MIDI);
-  return files;
+}
+
+function listSongs() {
+  return [...listMidis(SONG_DIR), ...listMidis(GAME_SONG_DIR)];
 }
 
 async function loadMidi(path) {

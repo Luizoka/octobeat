@@ -18,9 +18,6 @@ import { DIFFICULTIES, SetupScreen } from "./ui/SetupScreen.jsx";
 import { GameScreen } from "./ui/GameScreen.jsx";
 import { ResultsScreen } from "./ui/ResultsScreen.jsx";
 import { SettingsPanel } from "./ui/SettingsPanel.jsx";
-import demoMidiUrl from "../Deltarune Chapter 5 - Flower Man.mid?url";
-
-const DEMO_MIDI_NAME = "Deltarune Chapter 5 - Flower Man.mid";
 const FALL_DURATION = 1.55; // segundos que uma nota leva do topo até a linha
 const MISS_WINDOW = 0.22; // segundos depois da linha em que a nota vira erro
 const RESULTS_DELAY = 1200; // ms entre a última nota e a tela de resultado
@@ -583,13 +580,15 @@ export default function App() {
     return [id, summarizeChart(chart)];
   })), [gameplaySelection, importedSong, phaseSource]);
 
-  async function importSymbolicFile(file) {
+  /** `meta` (opcional): título/artista vindos do catálogo de músicas. */
+  async function importSymbolicFile(file, meta) {
     stopMidiAudio();
     midiPausedPositionRef.current = 0;
     setSongLoading(true);
     setHomeStatus(`Lendo ${file.name}...`);
     try {
-      const song = await importSong(file);
+      const imported = await importSong(file);
+      const song = meta ? { ...imported, title: meta.title, artist: meta.artist } : imported;
       const report = analyzeSong(song);
       const pianoTracks = song.tracks.filter((track) => isPianoFamily(track.family) && track.notes.length);
       const ids = (pianoTracks.length ? pianoTracks : song.tracks.filter((track) => track.notes.length)).map((track) => track.id);
@@ -620,17 +619,17 @@ export default function App() {
     if (file) await importSymbolicFile(file);
   }
 
-  async function loadExampleSong() {
+  async function loadCatalogSong(entry) {
     if (songLoading) return;
     setSongLoading(true);
-    setHomeStatus("Baixando a música de exemplo...");
+    setHomeStatus(`Carregando ${entry.title}...`);
     try {
-      const response = await fetch(demoMidiUrl);
-      if (!response.ok) throw new Error("Não foi possível carregar a música de exemplo.");
-      const file = new File([await response.blob()], DEMO_MIDI_NAME, { type: "audio/midi" });
-      await importSymbolicFile(file);
+      const response = await fetch(entry.url);
+      if (!response.ok) throw new Error(`Não foi possível carregar ${entry.title}.`);
+      const file = new File([await response.blob()], entry.file, { type: "audio/midi" });
+      await importSymbolicFile(file, entry);
     } catch (error) {
-      setHomeStatus(error instanceof Error ? error.message : "Não foi possível carregar a música de exemplo.");
+      setHomeStatus(error instanceof Error ? error.message : `Não foi possível carregar ${entry.title}.`);
       setSongLoading(false);
     }
   }
@@ -705,8 +704,7 @@ export default function App() {
           loading={songLoading}
           status={homeStatus}
           currentSong={importedSong?.title}
-          onDemo={() => openSetup("demo")}
-          onExample={loadExampleSong}
+          onPlaySong={loadCatalogSong}
           onImportFile={loadSymbolicSong}
           onContinue={() => openSetup("song")}
           onSettings={() => setSettingsOpen(true)}

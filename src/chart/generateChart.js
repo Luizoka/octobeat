@@ -1,6 +1,7 @@
 import { getPitchRange, mapPitchToLane } from "./mapPitchToLane.js";
 import { simplifyChart } from "./simplifyChart.js";
 import { applyHolds } from "./applyHolds.js";
+import { breakJacks } from "./breakJacks.js";
 import { notesForSegments } from "../music-analysis/selectMelodySegments.js";
 
 /**
@@ -21,5 +22,5 @@ export function generateChart(song, { trackIds, segments, difficulty = "normal" 
     tempoChanges: song.tempoChanges,
     timeSignatures: song.timeSignatures,
   });
-  return applyHolds(simplified, difficulty, { tempoChanges: song.tempoChanges });
+  return applyHolds(breakJacks(simplified), difficulty, { tempoChanges: song.tempoChanges });
 }
