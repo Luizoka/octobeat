@@ -156,6 +156,8 @@ export default function App() {
   const touchDevice = useMediaQuery(TOUCH_QUERY);
   const mustRotate = useMediaQuery(MUST_ROTATE_QUERY);
   const [fullscreenActive, setFullscreenActive] = useState(isFullscreen);
+  // Nos menus, o jogador pode dispensar o aviso de girar (vale até recarregar).
+  const [portraitAllowed, setPortraitAllowed] = useState(false);
   const canFullscreen = touchDevice && fullscreenSupported();
 
   const trackRef = useRef(null);
@@ -181,8 +183,9 @@ export default function App() {
   const startSequenceRef = useRef(0);
   const phaseSourceRef = useRef("demo");
   const finishTimerRef = useRef(0);
+  const progressRef = useRef(-1);
 
-  const fx = useGameEffects(settings, trackRef);
+  const fx = useGameEffects(settings, trackRef, { touch: touchDevice });
   const { onHit, onMiss, onStray, onHoldSpark, onHoldEnd, onMilestone, onFever, reset: resetEffects, warmup: warmupEffects, stageRef } = fx;
   const songAnalysis = useMemo(() => importedSong ? analyzeSong(importedSong) : null, [importedSong]);
   const holdingLanes = useMemo(() => new Set(notes.filter((note) => note.holdState === "holding").map((note) => note.key)), [notes]);
@@ -221,13 +224,13 @@ export default function App() {
   }, []);
 
   const stopMidiAudio = useCallback(() => {
-    // Notas do SoundFont são agendadas no futuro. Descartar o contexto é a forma
-    // confiável de cancelar também esses eventos, antes de uma nova execução.
+    // Para o som na hora (inclusive notas já agendadas), mas mantém os
+    // instrumentos carregados: pausar, retomar e reiniciar não recarregam o
+    // SoundFont. O player só é descartado quando a música muda.
     midiOperationRef.current += 1;
     midiBusyRef.current = false;
     setMidiBusy(false);
-    midiPlayerRef.current?.dispose();
-    midiPlayerRef.current = null;
+    midiPlayerRef.current?.halt();
   }, []);
 
   const waitForCountdown = useCallback(async (sequence) => {
@@ -261,9 +264,15 @@ export default function App() {
       await player.prepare(audioTrackIds, audioMode);
       if (operation !== midiOperationRef.current || player !== midiPlayerRef.current) return false;
       if (beforePlay && !await beforePlay()) return false;
+      // Interrompido durante a contagem (pausa, giro, troca de app).
+      if (operation !== midiOperationRef.current) return false;
       player.setMasterVolume(settings.masterVolume);
       player.setMix(audioMode);
       await player.play(position);
+      if (operation !== midiOperationRef.current) {
+        player.halt();
+        return false;
+      }
       return true;
     } finally {
       if (operation === midiOperationRef.current) {
@@ -319,6 +328,7 @@ export default function App() {
   const resetEngine = useCallback(() => {
     startSequenceRef.current += 1;
     startingRef.current = null;
+    progressRef.current = -1;
     window.clearTimeout(finishTimerRef.current);
     cancelAnimationFrame(animationRef.current);
     stopDemoSong();
@@ -407,7 +417,14 @@ export default function App() {
     }
 
     const end = endTimeRef.current;
-    stageRef.current?.style.setProperty("--progress", String(end > 0 ? Math.min(1, Math.max(0, time / end)) : 0));
+    // Barra de progresso: transform direto nas barras, e só quando muda 0,1%.
+    // (Uma variável CSS no contêiner do jogo recalculava o estilo de todos os
+    // elementos da pista a cada quadro — o maior custo no celular.)
+    const progress = end > 0 ? Math.round(Math.min(1, Math.max(0, time / end)) * 1000) / 1000 : 0;
+    if (progress !== progressRef.current) {
+      progressRef.current = progress;
+      stageRef.current?.querySelectorAll(".js-progress").forEach((bar) => { bar.style.transform = `scaleX(${progress})`; });
+    }
 
     if (next.length && next.every(isResolved) && time > end + 0.5) {
       finishGame();
@@ -875,9 +892,6 @@ export default function App() {
     beginGame(phaseNotes, phaseSource);
   }
 
-  function requestLandscape() {
-    enterLandscapeFullscreen();
-  }
 
   const difficultyLabel = DIFFICULTIES.find((option) => option.id === difficulty)?.label ?? "";
   const title = phaseSource === "song" && importedSong ? importedSong.title : "Fase demo";
@@ -970,10 +984,12 @@ export default function App() {
         />
       )}
 
-      {screen === "game" && mustRotate && (
+      {mustRotate && (screen === "game" || !portraitAllowed) && (
         <RotateOverlay
-          onFullscreen={canFullscreen && !fullscreenActive ? requestLandscape : null}
+          inGame={screen === "game"}
+          onRotate={canFullscreen ? enterLandscapeFullscreen : null}
           onExit={() => openSetup(phaseSource)}
+          onDismiss={() => setPortraitAllowed(true)}
         />
       )}
 

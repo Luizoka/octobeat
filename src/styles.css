@@ -284,7 +284,6 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 /* ── Jogo: HUD ──────────────────────────────────────────────────────────── */
 .game-screen { position: relative; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .game-stage {
-  --progress: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(0, 1fr);
   align-items: start;
@@ -368,7 +367,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .hud-score span { color: var(--muted); font-size: 0.8rem; }
 .hud-pause { justify-self: end; font-size: 0.9rem; }
 .hud-progress { position: absolute; right: 12px; bottom: 6px; left: 12px; height: 3px; overflow: hidden; border-radius: 3px; background: var(--line); }
-.hud-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--purple)); transform: scaleX(var(--progress)); transform-origin: left; }
+.hud-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--purple)); transform: scaleX(0); transform-origin: left; }
 
 /* ── Jogo: pista ────────────────────────────────────────────────────────── */
 .track {
@@ -861,6 +860,26 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .error-detail { display: block; width: 100%; padding: 10px; overflow-wrap: anywhere; border-radius: 8px; color: var(--coral); font-size: 0.82rem; text-align: left; background: var(--bg-2); }
 
+/* ── Celular: HUD flutuante (só aparece no layout horizontal compacto) ───── */
+.float-hud { display: none; position: absolute; inset: 0; pointer-events: none; }
+.float-side { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; gap: 12px; width: calc(var(--side) - 10px); padding: 2px 0 4px; }
+.float-left { left: 0; align-items: flex-start; }
+.float-right { right: 0; align-items: flex-end; text-align: right; }
+.float-pause { pointer-events: auto; margin-bottom: 4px; background: rgba(20, 27, 45, 0.85); }
+.float-stat { display: grid; gap: 1px; line-height: 1.1; }
+.float-stat strong { font-size: 1.15rem; font-weight: 900; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.float-stat span { color: var(--muted); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.float-multiplier, .float-rank { font-size: 1.9rem !important; font-style: italic; color: var(--muted); }
+.float-multiplier.tier-1 { color: var(--cyan); }
+.float-multiplier.tier-2 { color: var(--gold); }
+.float-multiplier.tier-3 { color: #ff7de0; }
+.float-rank.rank-S, .float-rank.rank-A { color: var(--gold); }
+.float-rank.rank-B { color: var(--cyan); }
+.float-rank.rank-C { color: #69a7ff; }
+.float-progress { width: 100%; height: 4px; margin-top: auto; overflow: hidden; border-radius: 4px; background: var(--line); }
+.float-progress span { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--purple)); transform: scaleX(0); transform-origin: left; }
+.float-right .fever-badge { justify-self: end; font-size: 0.8rem; }
+
 /* ── Celular: começar, girar, toque ─────────────────────────────────────── */
 .start-overlay .play-button { margin-top: 6px; }
 
@@ -880,6 +899,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .rotate-overlay h2 { margin: 0; font-size: 1.5rem; }
 .rotate-overlay p { max-width: 320px; margin: 0; color: var(--muted); line-height: 1.4; }
 .rotate-overlay .rotate-hint { font-size: 0.85rem; }
+.rotate-button { width: min(320px, 100%); min-height: 64px; margin-top: 6px; font-size: 1.25rem; }
+.rotate-skip { margin-top: 4px; padding: 10px; color: var(--muted); font-size: 0.85rem; text-decoration: underline; background: none; }
 .rotate-phone {
   position: relative;
   width: 46px;
@@ -943,7 +964,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   .results-actions { grid-template-columns: 1fr 1fr; margin-top: 4px; }
   .results-actions .play-button { grid-column: 1 / -1; }
 
-  /* Jogo: o HUD vira uma coluna à esquerda e a pista ocupa a altura toda. */
+  /* Jogo: pista no centro, na altura toda; o HUD vira informações soltas nas
+     laterais (pausa/config, pontos, multiplicador e nota). */
   .app-shell.screen-game {
     max-width: none;
     height: 100vh;
@@ -953,15 +975,10 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   }
   .game-screen, .game-stage, .game-center { height: 100%; }
   .game-stage { grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 0; }
-  .side-panel { display: none; }
-  .game-center { grid-template-columns: clamp(96px, 16vw, 150px) minmax(0, 1fr); gap: 8px; }
-  .game-hud { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; align-content: start; gap: 10px; padding: 10px 10px 16px; }
-  .hud-pause { grid-row: 1; justify-self: start; }
-  .hud-song { grid-row: 2; }
-  .hud-song strong { font-size: 0.85rem; }
-  .hud-score { grid-row: 3; justify-items: start; }
-  .hud-score strong { font-size: 1.3rem; }
-  .track { height: 100%; min-height: 0; max-height: none; }
+  .side-panel, .game-hud { display: none; }
+  .game-center { --side: clamp(84px, 14vw, 150px); position: relative; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 0; }
+  .track { width: min(680px, calc(100% - 2 * var(--side))); height: 100%; min-height: 0; max-height: none; }
+  .float-hud { display: block; }
   .combo-display { top: 16%; }
   .combo-display strong { font-size: clamp(2.2rem, 13vh, 4rem); }
   .countdown-overlay strong { font-size: clamp(3rem, 28vh, 7rem); }
