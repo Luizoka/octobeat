@@ -13,7 +13,7 @@
     "eval:songs": "node scripts/makeSyntheticSongs.js",
     "ranked:freeze": "node scripts/freezeRankedCharts.js",
     "db:migrate": "node scripts/db/migrate.js",
-    "db:test-policies": "node scripts/db/testPolicies.js"
+    "db:test-policies": "node scripts/db/policies/run.js"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",

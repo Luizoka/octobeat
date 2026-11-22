@@ -100,6 +100,10 @@ Abra **Ranking** para ver a classificação por música ou a aba **Geral**, com 
 Clique no nome de um jogador para abrir o perfil. Você pode entrar pela tela inicial ou pelo
 resultado. Em fases ranqueadas no modo duas mãos, a pontuação é enviada automaticamente após entrar.
 
+Arquitetura, regras do banco e checklist para novas features: [`docs/architecture.md`](docs/architecture.md).
+Migrações ficam em `db/migrations/` (rodam uma vez; `npm run db:migrate -- --status` mostra o estado)
+e testes de segurança em `scripts/db/policies/` (`npm run db:test-policies [suíte]`).
+
 ### Configurar o Neon
 
 1. Crie um projeto Neon com Postgres 18 ou anterior e escolha a branch e o banco que vão receber o ranking.
@@ -121,7 +125,7 @@ resultado. Em fases ranqueadas no modo duas mãos, a pontuação é enviada auto
    separado e fica no Postgres. As variáveis `VITE_` são
    distribuídas no bundle do navegador.
 4. Rode `npm run db:migrate` para criar o schema e carregar o seed. A migração
-   `db/002_profiles.sql` adiciona as RPCs públicas `get_player_profile` e
+   `db/migrations/002_profiles.sql` adiciona as RPCs públicas `get_player_profile` e
    `get_global_leaderboard`. No Neon,
    clique em **Refresh schema cache** na aba **API**. Rode
    `npm run db:test-policies` para verificar o acesso como `anonymous`.
@@ -135,7 +139,7 @@ resultado. Em fases ranqueadas no modo duas mãos, a pontuação é enviada auto
 
 1. Adicione o MIDI a `songs/` e a entrada a `src/songs/catalog.js`.
 2. Rode `npm run ranked:freeze`. Faça commit dos JSONs de `public/ranked/`
-   e de `db/seed_ranked_charts.sql` junto com a alteração no catálogo.
+   e de `db/seeds/ranked_charts.sql` junto com a alteração no catálogo.
 3. Rode `npm run db:migrate` no banco da publicação para aplicar o seed e
    publique o novo build. Cada dificuldade tem uma versão baseada nas notas.
    As pontuações ficam na versão em que foram enviadas.

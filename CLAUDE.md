@@ -38,15 +38,17 @@ Responda e escreva comentários em português.
 - `npm run eval:songs` — regenera os MIDIs sintéticos (determinístico).
 - O corpus tem só 1 música real; as sintéticas reproduzem problemas específicos. Mais MIDIs reais em `test-songs/` deixam a avaliação mais confiável.
 
-## Ranking (Neon, sem backend)
+## Online: ranking, contas e banco
 
-- O navegador fala direto com a **Neon Data API** (PostgREST) via `fetch` em `src/leaderboard/client.js`. A Data API exige JWT até para o papel `anonymous`: o cliente pega um JWT anônimo em `<VITE_NEON_AUTH_URL>/token/anonymous` (sem criar conta).
-- Login do jogo (usuário + senha) é **nosso, no Postgres** (funções `register`/`login`/`submit_score`… em `db/`), não o Neon Auth. Usuário: letras, números e espaços (espaços repetidos viram um); senha ≥ 6.
-- Segurança toda no banco: RLS + `anonymous` só executa as RPCs públicas; sem acesso direto às tabelas. `npm run db:test-policies` testa isso no banco real (com rollback).
-- **Fases congeladas:** `public/ranked/<slug>/<dificuldade>.json` (`npm run ranked:freeze`). Música do catálogo nas opções padrão (modo essência, duas mãos) usa a fase congelada e vale para o ranking, pela tela inicial ou pela tela Ranking. Mudar o gerador **não** altera essas fases; regerar cria um `chart_version` novo (ranking novo).
-- `npm run db:migrate` reaplica todos os `db/*.sql` (idempotentes) numa transação. Mudou o tipo de retorno de uma função → `DROP FUNCTION` antes. `position` em `RETURNS TABLE` precisa de aspas.
-- **Depois de todo `db:migrate`: Neon → Data API → "Refresh schema cache".** `NOTIFY pgrst` não funciona no Neon; sem o refresh, RPC nova/alterada dá 404.
-- `.env` (fora do git): `DATABASE_URL` (só scripts locais, nunca `VITE_`), `VITE_NEON_DATA_API_URL`, `VITE_NEON_AUTH_URL`. Produção precisa só das duas `VITE_`.
+**Leia `docs/architecture.md` antes de mexer em banco, login, ranking ou qualquer issue do roadmap (#6–#17).** Ele tem os princípios, pastas por domínio, modos de conteúdo, receita de tabela/função segura e o checklist de feature.
+
+Pontos que mais pegam:
+- Sem backend: navegador → Neon Data API; segurança toda no Postgres (RLS + funções `SECURITY DEFINER`). Nunca confiar no cliente para score/moeda/XP/permissão.
+- Migrações em `db/migrations/NNN_*.sql` rodam **uma vez** e são **imutáveis** depois de aplicadas (o `db:migrate` recusa). Corrigir = migração nova.
+- **Depois de todo `db:migrate` que aplicou algo: Neon → Data API → "Refresh schema cache"** (`NOTIFY pgrst` não funciona no Neon; sem isso, RPC nova dá 404).
+- `npm run db:test-policies` (suítes em `scripts/db/policies/`) no banco real, com rollback. RPC nova entra em `PUBLIC_RPC` (`platform.policy.js`) de propósito.
+- Fases do ranking são congeladas em `public/ranked/` (`npm run ranked:freeze`); mudar o gerador não as altera.
+- `.env` (fora do git): `DATABASE_URL` (só scripts locais, nunca `VITE_`), `VITE_NEON_DATA_API_URL`, `VITE_NEON_AUTH_URL`.
 
 ## Decisões já tomadas
 

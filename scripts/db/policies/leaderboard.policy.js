@@ -1,25 +1,8 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { connectDb } from "./connect.js";
 
-async function testPolicies(client) {
-  let failed = false;
-  async function check(label, run, { keep = false } = {}) {
-    await client.query("SAVEPOINT policy_check");
-    try {
-      const result = await run();
-      if (!keep) await client.query("ROLLBACK TO SAVEPOINT policy_check");
-      console.log(`✔ ${label}`);
-      return result;
-    } catch (error) {
-      await client.query("ROLLBACK TO SAVEPOINT policy_check");
-      console.error(`✘ ${label}: ${error.message}`);
-      failed = true;
-    } finally {
-      await client.query("RELEASE SAVEPOINT policy_check");
-    }
-  }
-
+// Ranking (#5): papel `anonymous` — tabelas fechadas, só RPCs.
+export default async function leaderboardPolicies({ client, check }) {
   const suffix = randomBytes(6).toString("hex");
   const username = `Teste${suffix}`;
   const password = randomBytes(12).toString("hex");
@@ -191,22 +174,4 @@ async function testPolicies(client) {
     await client.query("SELECT public.logout($1)", [token]);
     await assert.rejects(submit(token), { code: "P0001", message: /Sessão inválida/ });
   });
-  if (failed) process.exitCode = 1;
-}
-
-try {
-  const client = await connectDb();
-  try {
-    await client.query("BEGIN");
-    await testPolicies(client);
-  } finally {
-    try {
-      await client.query("ROLLBACK");
-    } finally {
-      await client.end();
-    }
-  }
-} catch (error) {
-  console.error(`✘ Teste de políticas: ${error.message}`);
-  process.exitCode = 1;
 }
