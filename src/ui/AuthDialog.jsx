@@ -22,13 +22,18 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [waitingGoogle, setWaitingGoogle] = useState(false);
+  const googleAbort = useRef(null);
   const active = useRef(false);
   const submitting = useRef(false);
   const enabled = isAuthEnabled();
 
   useEffect(() => {
     active.current = true;
-    return () => { active.current = false; };
+    return () => {
+      active.current = false;
+      googleAbort.current?.abort();
+    };
   }, []);
 
   async function run(action) {
@@ -58,13 +63,26 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
   }
 
   function authenticateWithGoogle() {
+    // Popup abre dentro de signInWithGoogle, ainda no clique (run chama na hora).
     void run(async () => {
-      const undo = beforeGoogle?.();
+      let undo = null;
+      const controller = new AbortController();
+      googleAbort.current = controller;
       try {
-        await signInWithGoogle();
+        // Pontuação pendente só é guardada se a página precisar sair (popup bloqueado).
+        const { redirected } = await signInWithGoogle({
+          signal: controller.signal,
+          onWaiting: () => { if (active.current) setWaitingGoogle(true); },
+          beforeRedirect: () => { undo = beforeGoogle?.() ?? null; },
+        });
+        if (!redirected && active.current) onSuccess();
       } catch (reason) {
         undo?.();
+        if (reason?.cancelled) return;
         throw reason;
+      } finally {
+        googleAbort.current = null;
+        if (active.current) setWaitingGoogle(false);
       }
     });
   }
@@ -117,9 +135,16 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
             </button>
           </form>
         </SegmentedTabs>
-        <button className="menu-button" type="button" onClick={authenticateWithGoogle} disabled={!enabled || busy}>
-          Entrar com Google
-        </button>
+        {waitingGoogle ? (
+          <div className="ranked-actions">
+            <p role="status">Conclua o login na janela do Google…</p>
+            <button className="menu-button" type="button" onClick={() => googleAbort.current?.abort()}>Cancelar</button>
+          </div>
+        ) : (
+          <button className="menu-button" type="button" onClick={authenticateWithGoogle} disabled={!enabled || busy}>
+            Entrar com Google
+          </button>
+        )}
       </div>
     </AccountDialog>
   );

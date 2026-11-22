@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
+import { completeOAuthPopup } from "./identity/auth.js";
 import { ErrorBoundary } from "./ui/ErrorBoundary.jsx";
 import "./styles.css";
 
@@ -12,7 +13,8 @@ try {
   // Sem suporte: segue o comportamento padrão do navegador.
 }
 
-createRoot(document.getElementById("root")).render(
+// Popup do login com Google voltando: só entrega o código à aba principal e fecha.
+if (!completeOAuthPopup()) createRoot(document.getElementById("root")).render(
   <StrictMode>
     <ErrorBoundary>
       <App />
