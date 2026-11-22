@@ -24,6 +24,11 @@ export function PrivacyPanel({ onClose }) {
           <h3>Jogar sem conta</h3>
           <p>Ao jogar sem conta, o jogo não envia suas partidas nem suas pontuações. Suas preferências ficam só no navegador.</p>
         </div>
+        <p>
+          <a href="/privacidade.html" target="_blank" rel="noopener">Política de Privacidade completa</a>
+          {" · "}
+          <a href="/termos.html" target="_blank" rel="noopener">Termos de Serviço</a>
+        </p>
       </div>
     </AccountDialog>
   );
