@@ -16,11 +16,18 @@ import { applyHit, applyHoldResults, applyMiss, createStats, crossedMilestone, i
 import { loadSettings, sanitizeSettings, saveSettings } from "./settings/settings.js";
 import { useGameEffects } from "./effects/useGameEffects.js";
 import { HomeScreen } from "./ui/HomeScreen.jsx";
+import { RankingScreen } from "./ui/RankingScreen.jsx";
+import { RankedResult } from "./ui/RankedResult.jsx";
+import { AuthDialog } from "./ui/AuthDialog.jsx";
+import { ProfilePanel } from "./ui/ProfilePanel.jsx";
 import { DIFFICULTIES, SetupScreen } from "./ui/SetupScreen.jsx";
 import { GameScreen } from "./ui/GameScreen.jsx";
 import { ResultsScreen } from "./ui/ResultsScreen.jsx";
 import { SettingsPanel } from "./ui/SettingsPanel.jsx";
 import { RotateOverlay } from "./ui/RotateOverlay.jsx";
+import { loadSession, saveSession } from "./leaderboard/session.js";
+import { loadRankedChart } from "./leaderboard/client.js";
+import { loadCatalogFile } from "./songs/catalog.js";
 const FALL_DURATION = 1.55; // segundos que uma nota leva do topo até a linha
 const MISS_WINDOW = 0.22; // segundos depois da linha em que a nota vira erro
 const RESULTS_DELAY = 1200; // ms entre a última nota e a tela de resultado
@@ -112,11 +119,24 @@ function scheduleNoise(context, nodes, start, volume = 1) {
 
 export default function App() {
   // ── Navegação e preferências ─────────────────────────────────────────────
-  const [screen, setScreen] = useState("home"); // home | setup | game | results
+  const [screen, setScreen] = useState("home"); // home | setup | ranking | game | results
+  const [rankedChart, setRankedChart] = useState(null);
+  // Música do catálogo aberta pela tela inicial: fases congeladas por dificuldade
+  // ({ easy, normal, hard }) e a que está em jogo agora (vale para o ranking).
+  const [catalogFrozen, setCatalogFrozen] = useState(null);
+  const [catalogRanked, setCatalogRanked] = useState(null);
+  const catalogSlugRef = useRef(null);
+  const [rankingSession, setRankingSession] = useState(loadSession);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [profileUsername, setProfileUsername] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(() => loadSettings(safeStorage(), {
     prefersReducedMotion: typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
   }));
+  useEffect(() => { saveSession(rankingSession); }, [rankingSession]);
+  const clearRankingSession = useCallback((token) => {
+    setRankingSession((current) => current?.token === token ? null : current);
+  }, []);
   const updateSettings = useCallback((patch) => setSettings((current) => sanitizeSettings({ ...current, ...patch })), []);
 
   // ── Fase ────────────────────────────────────────────────────────────────
@@ -179,6 +199,7 @@ export default function App() {
   const midiPausedPositionRef = useRef(0);
   const startSequenceRef = useRef(0);
   const phaseSourceRef = useRef("demo");
+  const playedHandModeRef = useRef("both");
   const finishTimerRef = useRef(0);
   const progressRef = useRef(-1);
 
@@ -246,25 +267,27 @@ export default function App() {
     return true;
   }, [settings.leadInSeconds]);
 
-  const playMidi = useCallback(async (position = 0, beforePlay) => {
+  const playMidi = useCallback(async (position = 0, beforePlay, {
+    song = importedSong, trackIds = audioTrackIds, mode = audioMode,
+  } = {}) => {
     if (midiBusyRef.current) return false;
-    if (!importedSong || importedSong.source?.format !== "MIDI") throw new Error("A reprodução integrada está disponível para MIDI.");
+    if (song?.source?.format !== "MIDI") throw new Error("A reprodução integrada está disponível para MIDI.");
     const operation = ++midiOperationRef.current;
     midiBusyRef.current = true;
     setMidiBusy(true);
-    if (!midiPlayerRef.current || midiPlayerRef.current.song !== importedSong) {
+    if (!midiPlayerRef.current || midiPlayerRef.current.song !== song) {
       midiPlayerRef.current?.dispose();
-      midiPlayerRef.current = new MidiPlayer(importedSong, { onStatus: setMidiAudioStatus });
+      midiPlayerRef.current = new MidiPlayer(song, { onStatus: setMidiAudioStatus });
     }
     const player = midiPlayerRef.current;
     try {
-      await player.prepare(audioTrackIds, audioMode);
+      await player.prepare(trackIds, mode);
       if (operation !== midiOperationRef.current || player !== midiPlayerRef.current) return false;
       if (beforePlay && !await beforePlay()) return false;
       // Interrompido durante a contagem (pausa, giro, troca de app).
       if (operation !== midiOperationRef.current) return false;
       player.setMasterVolume(settings.masterVolume);
-      player.setMix(audioMode);
+      player.setMix(mode);
       await player.play(position);
       if (operation !== midiOperationRef.current) {
         player.halt();
@@ -430,31 +453,32 @@ export default function App() {
     animationRef.current = requestAnimationFrame(tick);
   }, [commitNotes, commitStats, finishGame, gameTime, onHoldEnd, onHoldSpark, onMiss, stageRef]);
 
-  const startGame = useCallback(async (chart, source) => {
+  const startGame = useCallback(async (chart, source, { ranked = false, midi } = {}) => {
     if (midiBusyRef.current) return;
     resetEngine();
     warmupEffects();
     phaseSourceRef.current = source;
+    playedHandModeRef.current = settings.handMode;
     const sequence = startSequenceRef.current;
     const nextNotes = buildNotes(chart);
     if (!nextNotes.length) {
       setSetupStatus("Esta fase não tem notas.");
-      setScreen("setup");
+      setScreen(ranked ? "ranking" : "setup");
       return;
     }
     startingRef.current = "start";
 
     // O AudioContext é criado/retomado antes do 1º await: ainda dentro do toque.
-    if (source === "song" && importedSong?.source?.format === "MIDI") {
+    if (source === "song" && (midi?.song ?? importedSong)?.source?.format === "MIDI") {
       try {
-        const started = await playMidi(0, () => waitForCountdown(sequence));
+        const started = await playMidi(0, () => waitForCountdown(sequence), midi);
         if (!started) return;
       } catch (error) {
         // Cancelado de propósito (giro, troca de app): o carregamento falha, mas não é erro.
         if (sequence !== startSequenceRef.current) return;
         startingRef.current = null;
         setSetupStatus(error instanceof Error ? error.message : "Não foi possível carregar o SoundFont.");
-        setScreen("setup");
+        setScreen(ranked ? "ranking" : "setup");
         return;
       }
     } else {
@@ -468,7 +492,7 @@ export default function App() {
     setPlaying(true);
     playingRef.current = true;
     animationRef.current = requestAnimationFrame(tick);
-  }, [buildNotes, importedSong, playMidi, resetEngine, startDemoSong, tick, unlockDemoAudio, waitForCountdown, warmupEffects]);
+  }, [buildNotes, importedSong, playMidi, resetEngine, settings.handMode, startDemoSong, tick, unlockDemoAudio, waitForCountdown, warmupEffects]);
 
   /** Resolve os holds sendo segurados (por soltar a tecla ou ao retomar a pausa). */
   const resolveHolding = useCallback((shouldRelease, time) => {
@@ -753,12 +777,27 @@ export default function App() {
   ), [gameplaySourceMode, importedSong, selectedTrackIds, songAnalysis]);
   const gameplayTrackIds = gameplaySelection.trackIds;
 
-  const setupCharts = useMemo(() => Object.fromEntries(DIFFICULTIES.map(({ id }) => {
+  const setupCharts = useMemo(() => rankedChart ? {} : Object.fromEntries(DIFFICULTIES.map(({ id }) => {
+    // Música do catálogo nas opções padrão: usa a fase congelada (a mesma do
+    // ranking), para a partida valer. Tracks escolhidas à mão geram na hora.
+    const frozen = phaseSource === "song" && gameplaySourceMode === "essence" ? catalogFrozen?.[id] : null;
+    if (frozen) return [id, { ...summarizeChart(frozen.notes), ranked: frozen }];
     const chart = phaseSource === "song" && importedSong
       ? (gameplaySelection.trackIds.length ? generateChart(importedSong, { trackIds: gameplaySelection.trackIds, segments: gameplaySelection.segments, difficulty: id }) : [])
       : createDemoChart(id);
     return [id, summarizeChart(chart)];
-  })), [gameplaySelection, importedSong, phaseSource]);
+  })), [catalogFrozen, gameplaySelection, gameplaySourceMode, importedSong, phaseSource, rankedChart]);
+
+  function setSongForPlay(song) {
+    const playableTracks = song.tracks.filter((track) => track.notes.length);
+    const pianoTracks = playableTracks.filter((track) => isPianoFamily(track.family));
+    const trackIds = playableTracks.map((track) => track.id);
+    setImportedSong(song);
+    setSelectedTrackIds((pianoTracks.length ? pianoTracks : playableTracks).map((track) => track.id));
+    setGameplaySourceMode("essence");
+    setAudioTrackIds(trackIds);
+    return trackIds;
+  }
 
   /** `meta` (opcional): título/artista vindos do catálogo de músicas. */
   async function importSymbolicFile(file, meta) {
@@ -770,12 +809,12 @@ export default function App() {
       const imported = await importSong(file);
       const song = meta ? { ...imported, title: meta.title, artist: meta.artist } : imported;
       const report = analyzeSong(song);
-      const pianoTracks = song.tracks.filter((track) => isPianoFamily(track.family) && track.notes.length);
-      const ids = (pianoTracks.length ? pianoTracks : song.tracks.filter((track) => track.notes.length)).map((track) => track.id);
-      setImportedSong(song);
-      setSelectedTrackIds(ids);
-      setGameplaySourceMode("essence");
-      setAudioTrackIds(song.tracks.filter((track) => track.notes.length).map((track) => track.id));
+      setSongForPlay(song);
+      setRankedChart(null);
+      setCatalogRanked(null);
+      setCatalogFrozen(null);
+      catalogSlugRef.current = meta?.id ?? null;
+      if (meta?.id) loadCatalogFrozen(meta.id);
       midiPlayerRef.current?.dispose();
       midiPlayerRef.current = null;
       const melodyIds = selectGameplayTracks(song, { mode: "essence", analysis: report }).trackIds;
@@ -793,6 +832,16 @@ export default function App() {
     }
   }
 
+  /** Busca as fases congeladas da música do catálogo. Falhou? Joga a gerada (sem ranking). */
+  async function loadCatalogFrozen(slug) {
+    const results = await Promise.allSettled(DIFFICULTIES.map(({ id }) => loadRankedChart(slug, id)));
+    const frozen = Object.fromEntries(results.flatMap((result, index) => (
+      result.status === "fulfilled" ? [[DIFFICULTIES[index].id, result.value]] : []
+    )));
+    // Só aplica se o jogador ainda está nesta música.
+    if (catalogSlugRef.current === slug && Object.keys(frozen).length) setCatalogFrozen({ slug, ...frozen });
+  }
+
   async function loadSymbolicSong(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -804,9 +853,7 @@ export default function App() {
     setSongLoading(true);
     setHomeStatus(`Carregando ${entry.title}...`);
     try {
-      const response = await fetch(entry.url);
-      if (!response.ok) throw new Error(`Não foi possível carregar ${entry.title}.`);
-      const file = new File([await response.blob()], entry.file, { type: "audio/midi" });
+      const file = await loadCatalogFile(entry);
       await importSymbolicFile(file, entry);
     } catch (error) {
       setHomeStatus(error instanceof Error ? error.message : `Não foi possível carregar ${entry.title}.`);
@@ -851,13 +898,24 @@ export default function App() {
   // ── Navegação ───────────────────────────────────────────────────────────
   function goHome() {
     resetEngine();
+    setRankedChart(null);
     setScreen("home");
   }
 
   function openSetup(source) {
     resetEngine();
     setPhaseSource(source);
-    setScreen("setup");
+    setScreen(rankedChart ? "ranking" : "setup");
+  }
+
+  function openRanking() {
+    setSetupStatus("");
+    setScreen("ranking");
+  }
+
+  function updateRankingSession(session) {
+    setRankingSession(session);
+    setAuthOpen(false);
   }
 
   /**
@@ -865,7 +923,7 @@ export default function App() {
    * áudio no celular só são liberados por um gesto do usuário. Em retrato, a
    * fase fica esperando o aparelho girar e um toque em "Começar".
    */
-  async function beginGame(chart, source, { fullscreen = false } = {}) {
+  async function beginGame(chart, source, { fullscreen = false, ranked = false, midi } = {}) {
     if (!chart.length) return;
     setPhaseNotes(chart);
     setScreen("game");
@@ -880,17 +938,30 @@ export default function App() {
       setAwaitingStart(true);
       return;
     }
-    startGame(chart, source);
+    startGame(chart, source, { ranked, midi });
   }
 
   function playSelected({ fullscreen = false } = {}) {
-    beginGame(setupCharts[difficulty]?.chart ?? [], phaseSource, { fullscreen });
+    const selected = setupCharts[difficulty];
+    setCatalogRanked(selected?.ranked ?? null);
+    beginGame(selected?.chart ?? [], phaseSource, { fullscreen });
   }
 
   function restartGame() {
-    beginGame(phaseNotes, phaseSource);
+    // `ranked` aqui só escolhe a tela de volta em caso de erro (Ranking x Configuração).
+    beginGame(phaseNotes, phaseSource, { ranked: Boolean(rankedChart) });
   }
 
+  function playRanked(chart, song, options) {
+    setSetupStatus("");
+    setRankedChart(chart);
+    setCatalogRanked(null);
+    setDifficulty(chart.difficulty);
+    setPhaseSource("song");
+    const trackIds = setSongForPlay(song);
+    // A primeira reprodução recebe os dados no gesto que libera o áudio no celular.
+    beginGame(chart.notes, "song", { ...options, ranked: true, midi: { song, trackIds } });
+  }
 
   const difficultyLabel = DIFFICULTIES.find((option) => option.id === difficulty)?.label ?? "";
   const title = phaseSource === "song" && importedSong ? importedSong.title : "Fase demo";
@@ -906,8 +977,18 @@ export default function App() {
           onPlaySong={loadCatalogSong}
           onImportFile={loadSymbolicSong}
           onContinue={() => openSetup("song")}
+          onRanking={openRanking}
           onSettings={() => setSettingsOpen(true)}
+          session={rankingSession}
+          onAccount={() => rankingSession ? setProfileUsername(rankingSession.username) : setAuthOpen(true)}
         />
+      )}
+
+      {screen === "ranking" && (
+        <RankingScreen initialChart={rankedChart} initialDifficulty={difficulty} handMode={settings.handMode}
+          session={rankingSession} onProfile={setProfileUsername} onPlay={playRanked}
+          onBack={goHome} onSettings={() => setSettingsOpen(true)}
+          canFullscreen={canFullscreen && !fullscreenActive} status={setupStatus} />
       )}
 
       {screen === "setup" && (
@@ -979,6 +1060,9 @@ export default function App() {
           onReplay={restartGame}
           onSetup={() => openSetup(phaseSource)}
           onHome={goHome}
+          rankedResult={(rankedChart || catalogRanked) && <RankedResult chart={rankedChart || catalogRanked} stats={stats}
+            eligible={playedHandModeRef.current === "both" && settings.handMode === "both"}
+            session={rankingSession} onSessionExpired={clearRankingSession} onAuth={() => setAuthOpen(true)} />}
         />
       )}
 
@@ -992,6 +1076,9 @@ export default function App() {
       )}
 
       {settingsOpen && <SettingsPanel settings={settings} onChange={updateSettings} onClose={() => setSettingsOpen(false)} />}
+      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={updateRankingSession} />}
+      {profileUsername && <ProfilePanel key={profileUsername} username={profileUsername} session={rankingSession}
+        onSessionExpired={clearRankingSession} onClose={() => setProfileUsername(null)} />}
     </main>
   );
 }

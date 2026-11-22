@@ -8,7 +8,7 @@ const RANK_TEXT = {
   D: "Continue treinando!",
 };
 
-export function ResultsScreen({ stats, title, difficultyLabel, onReplay, onSetup, onHome }) {
+export function ResultsScreen({ stats, title, difficultyLabel, onReplay, onSetup, onHome, rankedResult }) {
   const rank = finalRank(stats);
   const accuracy = Math.round(weightedAccuracy(stats) * 100);
   const rows = [
@@ -46,6 +46,7 @@ export function ResultsScreen({ stats, title, difficultyLabel, onReplay, onSetup
             ))}
           </ul>
 
+          {rankedResult}
           <div className="results-actions">
             <button className="play-button" type="button" onClick={onReplay} autoFocus>↻ Jogar de novo</button>
             <button className="menu-button" type="button" onClick={onSetup}>Trocar dificuldade</button>

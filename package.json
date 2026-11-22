@@ -10,7 +10,10 @@
     "play": "vite build && vite preview --host 0.0.0.0",
     "test": "node --test",
     "eval:charts": "node scripts/evaluateCharts.js",
-    "eval:songs": "node scripts/makeSyntheticSongs.js"
+    "eval:songs": "node scripts/makeSyntheticSongs.js",
+    "ranked:freeze": "node scripts/freezeRankedCharts.js",
+    "db:migrate": "node scripts/db/migrate.js",
+    "db:test-policies": "node scripts/db/testPolicies.js"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
@@ -20,6 +23,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.2",
+    "pg": "^8.16.0",
     "vite": "^8.0.16"
   }
 }

@@ -1,0 +1,98 @@
+[
+  {
+    "slug": "flower-man",
+    "difficulty": "easy",
+    "chartVersion": "e455b02bb12d",
+    "noteCount": 320,
+    "maxScore": 3575764,
+    "title": "Flower Man"
+  },
+  {
+    "slug": "flower-man",
+    "difficulty": "normal",
+    "chartVersion": "cf147e12da61",
+    "noteCount": 427,
+    "maxScore": 6026567,
+    "title": "Flower Man"
+  },
+  {
+    "slug": "flower-man",
+    "difficulty": "hard",
+    "chartVersion": "922e36a9c9b7",
+    "noteCount": 441,
+    "maxScore": 6381051,
+    "title": "Flower Man"
+  },
+  {
+    "slug": "cutie-mew-mew-magic",
+    "difficulty": "easy",
+    "chartVersion": "ec0e2bd56e2a",
+    "noteCount": 383,
+    "maxScore": 4845200,
+    "title": "Cutie Mew Mew Magic"
+  },
+  {
+    "slug": "cutie-mew-mew-magic",
+    "difficulty": "normal",
+    "chartVersion": "12af848f68c1",
+    "noteCount": 401,
+    "maxScore": 5352798,
+    "title": "Cutie Mew Mew Magic"
+  },
+  {
+    "slug": "cutie-mew-mew-magic",
+    "difficulty": "hard",
+    "chartVersion": "566a8cbd5cac",
+    "noteCount": 672,
+    "maxScore": 13484444,
+    "title": "Cutie Mew Mew Magic"
+  },
+  {
+    "slug": "chaos-king",
+    "difficulty": "easy",
+    "chartVersion": "d265bd456023",
+    "noteCount": 375,
+    "maxScore": 4658955,
+    "title": "Chaos King"
+  },
+  {
+    "slug": "chaos-king",
+    "difficulty": "normal",
+    "chartVersion": "b64370c4ca0b",
+    "noteCount": 596,
+    "maxScore": 10798447,
+    "title": "Chaos King"
+  },
+  {
+    "slug": "chaos-king",
+    "difficulty": "hard",
+    "chartVersion": "3f9111edc458",
+    "noteCount": 968,
+    "maxScore": 26276936,
+    "title": "Chaos King"
+  },
+  {
+    "slug": "death-by-glamour",
+    "difficulty": "easy",
+    "chartVersion": "e8975d1067cc",
+    "noteCount": 254,
+    "maxScore": 2327868,
+    "title": "Death by Glamour"
+  },
+  {
+    "slug": "death-by-glamour",
+    "difficulty": "normal",
+    "chartVersion": "671dd62d3183",
+    "noteCount": 479,
+    "maxScore": 7218188,
+    "title": "Death by Glamour"
+  },
+  {
+    "slug": "death-by-glamour",
+    "difficulty": "hard",
+    "chartVersion": "f34f5deab9bc",
+    "noteCount": 905,
+    "maxScore": 23103576,
+    "title": "Death by Glamour"
+  }
+]
