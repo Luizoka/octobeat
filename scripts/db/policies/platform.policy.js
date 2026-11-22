@@ -6,11 +6,11 @@ import assert from "node:assert/strict";
 
 /** Funções que o navegador pode chamar, por papel da Data API. */
 export const PUBLIC_RPC = {
-  anonymous: [
-    "get_global_leaderboard", "get_leaderboard", "get_player_profile",
-    "login", "logout", "register", "submit_score",
+  anonymous: ["get_global_leaderboard", "get_leaderboard", "get_player_profile", "username_available"],
+  authenticated: [
+    "create_my_profile", "get_global_leaderboard", "get_leaderboard", "get_my_profile",
+    "get_player_profile", "submit_score", "update_my_profile", "username_available",
   ],
-  authenticated: [],
 };
 
 export default async function platformPolicies({ client, check }) {
@@ -37,10 +37,14 @@ export default async function platformPolicies({ client, check }) {
     });
   }
 
-  await check("schema ops (controle de migrações) é inacessível pela API", async () => {
-    for (const role of ["anonymous", "authenticated"]) {
-      const { rows: [{ usage }] } = await client.query("SELECT has_schema_privilege($1, 'ops', 'USAGE') AS usage", [role]);
-      assert.equal(usage, false, `${role} tem USAGE em ops`);
-    }
-  });
+  for (const schema of ["ops", "internal"]) {
+    await check(`schema ${schema} é inacessível pela API`, async () => {
+      const exists = (await client.query("SELECT 1 FROM pg_namespace WHERE nspname = $1", [schema])).rowCount;
+      if (!exists) return;
+      for (const role of ["anonymous", "authenticated"]) {
+        const { rows: [{ usage }] } = await client.query("SELECT has_schema_privilege($1, $2, 'USAGE') AS usage", [role, schema]);
+        assert.equal(usage, false, `${role} tem USAGE em ${schema}`);
+      }
+    });
+  }
 }

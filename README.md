@@ -97,8 +97,10 @@ O jogo tambem aceita temporariamente o formato antigo:
 ## Ranking (Neon)
 
 Abra **Ranking** para ver a classificação por música ou a aba **Geral**, com filtro por dificuldade.
-Clique no nome de um jogador para abrir o perfil. Você pode entrar pela tela inicial ou pelo
-resultado. Em fases ranqueadas no modo duas mãos, a pontuação é enviada automaticamente após entrar.
+Clique no nome de um jogador para abrir o perfil. Entre com **Google** ou com **usuário e senha**
+pela tela inicial ou pelo resultado. No primeiro acesso com Google, escolha seu nome de usuário.
+Em fases ranqueadas no modo duas mãos, a pontuação é enviada automaticamente após entrar e criar o perfil.
+Você também pode continuar como convidado e jogar sem enviar pontuações.
 
 Arquitetura, regras do banco e checklist para novas features: [`docs/architecture.md`](docs/architecture.md).
 Migrações ficam em `db/migrations/` (rodam uma vez; `npm run db:migrate -- --status` mostra o estado)
@@ -121,12 +123,13 @@ e testes de segurança em `scripts/db/policies/` (`npm run db:test-policies [su�
    acrescentar `/rpc`. Em `VITE_NEON_AUTH_URL`, coloque a URL do Neon Auth
    (a do JWKS sem `/.well-known/jwks.json`, terminando em `/neondb/auth`). A Data API
    exige JWT até para o papel `anonymous`: o cliente busca um JWT anônimo em
-   `<auth>/token/anonymous` (sem criar conta). O login do jogo (usuário e senha) é
-   separado e fica no Postgres. As variáveis `VITE_` são
+   `<auth>/token/anonymous` (sem criar conta). No Neon Auth, habilite Google e
+   e-mail/senha, autorize as origens do jogo e deixe a verificação obrigatória de e-mail
+   desativada para aceitar as contas de usuário e senha. As variáveis `VITE_` são
    distribuídas no bundle do navegador.
 4. Rode `npm run db:migrate` para criar o schema e carregar o seed. A migração
-   `db/migrations/002_profiles.sql` adiciona as RPCs públicas `get_player_profile` e
-   `get_global_leaderboard`. No Neon,
+   `db/migrations/004_identity.sql` conecta os perfis e as pontuações às contas
+   do Neon Auth. No Neon,
    clique em **Refresh schema cache** na aba **API**. Rode
    `npm run db:test-policies` para verificar o acesso como `anonymous`.
    A role usada no teste precisa poder executar `SET ROLE anonymous`, e os

@@ -1,15 +1,22 @@
+import { useSyncExternalStore } from "react";
+import { getSnapshot, subscribe } from "../identity/auth.js";
 import octoLogo from "../images/logo_semfundo.png";
 import { SONG_CATALOG } from "../songs/catalog.js";
 
-export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onRanking, onSettings, session, onAccount }) {
+export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onRanking, onSettings, scoreNotice, onAccount }) {
+  const identity = useSyncExternalStore(subscribe, getSnapshot);
+  const checkingAccount = identity.status === "loading";
+  const accountLabel = identity.profile?.display_name ?? (identity.status === "needsProfile" ? "Criar perfil" : "Entrar");
   return (
     <section className="screen home-screen" aria-label="Início">
       <header className="screen-header">
-        <button className="menu-button account-chip" type="button" onClick={onAccount}>
-          {session?.username ?? "Entrar"}
+        <button className="menu-button account-chip" type="button" onClick={() => onAccount(identity.profile?.username_slug)}
+          disabled={checkingAccount} aria-label={checkingAccount ? "Verificando sua conta" : accountLabel}>
+          {checkingAccount ? <span className="loading-spinner" aria-hidden="true" /> : accountLabel}
         </button>
         <button className="icon-button" type="button" onClick={onSettings} aria-label="Configurações" title="Configurações">⚙</button>
       </header>
+      {scoreNotice && <p className="score-notice" role="status">{scoreNotice}</p>}
 
       <div className="home-hero">
         <img className="home-logo" src={octoLogo} alt="" />

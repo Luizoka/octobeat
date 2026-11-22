@@ -1,13 +1,17 @@
 // npm run db:migrate            → aplica migrações pendentes + seeds
 // npm run db:migrate -- --status → só mostra o que está aplicado/pendente
+// npm run db:migrate -- --dry-run → aplica pendentes + roda db:test-policies
+//                                   numa transação desfeita (testa sem gravar)
 //
 // Regras em scripts/db/migrations.js e docs/architecture.md (seção Banco).
 import { readdir, readFile } from "node:fs/promises";
 import { connectDb } from "./connect.js";
 import { listMigrations, planMigrations } from "./migrations.js";
+import { runPolicySuites } from "./policies/run.js";
 
 const root = new URL("../../db/", import.meta.url);
 const statusOnly = process.argv.includes("--status");
+const dryRun = process.argv.includes("--dry-run");
 
 async function readSqlDir(sub) {
   const dir = new URL(`${sub}/`, root);
@@ -56,6 +60,25 @@ async function main() {
     for (const migration of pending) console.log(`${statusOnly ? "…" : "→"} ${migration.name} (pendente)`);
     if (errors.length) throw new Error(errors.join("\n  "));
     if (statusOnly) return;
+
+    if (dryRun) {
+      // Tudo numa transação que SEMPRE é desfeita: aplica pendentes + seeds e
+      // roda as suítes de políticas por cima. Produção não muda.
+      await client.query("BEGIN");
+      try {
+        for (const migration of pending) {
+          await client.query(migration.sql);
+          console.log(`✔ ${migration.name} (simulada)`);
+        }
+        for (const seed of seeds) await client.query(seed.sql);
+        const failed = await runPolicySuites(client, { inTransaction: true });
+        if (failed) process.exitCode = 1;
+      } finally {
+        await client.query("ROLLBACK");
+        console.log("\n↩ Dry-run: nada foi gravado no banco.");
+      }
+      return;
+    }
 
     for (const migration of pending) {
       await client.query("BEGIN");
