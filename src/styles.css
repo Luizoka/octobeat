@@ -913,8 +913,67 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .password-toggle:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: -4px; border-radius: 10px; }
 .auth-panel .ranked-form { grid-template-columns: minmax(0, 1fr); }
 .profile-panel { width: min(760px, 100%); }
-.profile-danger { border-top: 1px solid var(--line); }
-.profile-danger h3 { color: var(--muted); }
+/* Perfil: blocos separados com respiro (identidade → números → pontuações → em breve → perigo). */
+.profile-body { gap: 22px; padding: 22px 24px 24px; }
+.profile-hero { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.profile-hero-text { display: grid; gap: 4px; flex: 1 1 220px; min-width: 0; }
+.profile-name { margin: 0; font-size: 1.5rem; line-height: 1.2; overflow-wrap: anywhere; }
+.profile-handle { color: var(--muted); }
+.profile-hero .profile-bio { margin-top: 6px; color: var(--text); }
+.profile-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.profile-section { display: grid; gap: 12px; }
+/* O diálogo reaproveita .settings-panel, cujas regras de header/section/h3
+   (cabeçalho fixo, recuo de 20px, título pequeno ciano) não valem aqui. */
+.settings-panel .profile-hero {
+  position: static;
+  padding: 0 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+.settings-panel .profile-body > section { padding: 0; }
+.settings-panel .profile-body > section.profile-danger { padding: 14px 16px; }
+.settings-panel .profile-name {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.55rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.profile-section-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.profile-empty {
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+}
+.profile-soon-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.profile-soon-list li {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.profile-danger {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, #ff5a6e 35%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, #ff5a6e 6%, transparent);
+}
+.profile-danger .profile-section-title { color: #ff8b98; }
+.profile-editor { gap: 16px; }
+.profile-editor-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.profile-editor-actions .play-button { width: auto; min-width: 140px; }
+.avatar-colors legend { margin-bottom: 8px; }
+.avatar-colors-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .ranked-form.delete-account-form { grid-template-columns: minmax(0, 1fr); }
 .menu-button.delete-account-button { color: #fff; background: #a32b3f; }
 .profile-panel h2, .profile-identity p, .profile-bio { overflow-wrap: anywhere; min-width: 0; }
@@ -923,11 +982,12 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   display: grid;
   place-items: center;
   flex: none;
-  width: 52px;
-  height: 52px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   background: var(--avatar-color);
-  font-size: 1.55rem;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--avatar-color) 25%, transparent);
+  font-size: 2.3rem;
 }
 .profile-bio { white-space: pre-wrap; }
 .profile-editor :is(.profile-bio, .avatar-colors) { grid-column: 1 / -1; }
@@ -964,18 +1024,21 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .profile-since { color: var(--muted); }
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
   margin: 0;
 }
 .profile-stats div {
-  padding: 8px;
+  display: flex;
+  flex-direction: column-reverse; /* valor em cima, rótulo embaixo */
+  gap: 4px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg-2);
 }
-.profile-stats dt { color: var(--muted); font-size: 0.85rem; }
-.profile-stats dd { margin: 2px 0 0; font-weight: 800; }
+.profile-stats dd { margin: 0; font-size: 1.45rem; font-weight: 800; line-height: 1.1; }
+.profile-stats dt { color: var(--muted); font-size: 0.82rem; }
 
 /* ── Fogo nos holds épicos ──────────────────────────────────────────────── */
 .note.hold-note.is-epic::before {
