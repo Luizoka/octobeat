@@ -1,6 +1,9 @@
 // Pontuação, combo, multiplicador (Fever) e nota final. Puro, sem React.
 // Toda atualização recebe as estatísticas anteriores e devolve novas.
 
+import { holdEnd, isHold, resolveHold } from "./holdNotes.js";
+import { judgeNote } from "./judgeNote.js";
+
 export const MULTIPLIER_TIERS = Object.freeze([
   { combo: 100, multiplier: 4 },
   { combo: 50, multiplier: 3 },
@@ -83,6 +86,22 @@ export function applyHoldResults(stats, results) {
     holdsComplete: stats.holdsComplete + complete,
     holdsDropped: stats.holdsDropped + dropped,
   };
+}
+
+/** Pontuação com todas as cabeças perfeitas e todos os holds completos. */
+export function maxScore(notes) {
+  const events = notes.flatMap((note) => {
+    const head = { note, time: note.time, tail: false };
+    return isHold(note) ? [head, { note, time: holdEnd(note), tail: true }] : [head];
+  });
+  // No mesmo instante, fecha o hold anterior antes de julgar a próxima cabeça.
+  events.sort((a, b) => a.time - b.time || Number(b.tail) - Number(a.tail));
+  const perfect = judgeNote(0);
+  let stats = createStats();
+  for (const { note, time, tail } of events) {
+    stats = tail ? applyHoldResults(stats, [resolveHold(note, time)]) : applyHit(stats, perfect);
+  }
+  return stats.score;
 }
 
 /** Precisão ponderada: Perfeito vale 1, Bom 0,7, Cedo/Atrasado 0,4, Erro 0. */

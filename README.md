@@ -94,6 +94,56 @@ O jogo tambem aceita temporariamente o formato antigo:
 3. Clique em `Jogar agora`. O OctoBeat gera o chart, abre o jogo, carrega os instrumentos e inicia após a contagem.
 5. Opcionalmente associe um áudio local e exporte o JSON da fase.
 
+## Ranking (Neon)
+
+Abra **Ranking** para ver a classificação por música ou a aba **Geral**, com filtro por dificuldade.
+Clique no nome de um jogador para abrir o perfil. Você pode entrar pela tela inicial ou pelo
+resultado. Em fases ranqueadas no modo duas mãos, a pontuação é enviada automaticamente após entrar.
+
+### Configurar o Neon
+
+1. Crie um projeto Neon com Postgres 18 ou anterior e escolha a branch e o banco que vão receber o ranking.
+   Em **Postgres database → Data API**, ative a API com **Neon Auth** (padrão; ele
+   fornece o JWT anônimo) e deixe **Grant public schema access** desmarcado. Em **Settings**, exponha o
+   schema `public` e use `anonymous` como **Anonymous role**.
+   [Configuração da Data API](https://neon.com/docs/data-api/get-started)
+2. Em **CORS allowed origins**, configure `https://octobeat.luizoka.dev`,
+   `http://localhost:5173` e `http://localhost:4173`.
+   [Configurações avançadas da Data API](https://neon.com/docs/data-api/manage#advanced-settings)
+3. Copie `.env.example` para `.env`. Em `DATABASE_URL`, coloque a conexão
+   direta do Postgres para a role administradora do banco. Mantenha essa variável
+   privada e jamais use o prefixo `VITE_` nela. Em `VITE_NEON_DATA_API_URL`,
+   coloque a URL completa exibida na aba **API**, incluindo `/rest/v1` e sem
+   acrescentar `/rpc`. Em `VITE_NEON_AUTH_URL`, coloque a URL do Neon Auth
+   (a do JWKS sem `/.well-known/jwks.json`, terminando em `/neondb/auth`). A Data API
+   exige JWT até para o papel `anonymous`: o cliente busca um JWT anônimo em
+   `<auth>/token/anonymous` (sem criar conta). O login do jogo (usuário e senha) é
+   separado e fica no Postgres. As variáveis `VITE_` são
+   distribuídas no bundle do navegador.
+4. Rode `npm run db:migrate` para criar o schema e carregar o seed. A migração
+   `db/002_profiles.sql` adiciona as RPCs públicas `get_player_profile` e
+   `get_global_leaderboard`. No Neon,
+   clique em **Refresh schema cache** na aba **API**. Rode
+   `npm run db:test-policies` para verificar o acesso como `anonymous`.
+   A role usada no teste precisa poder executar `SET ROLE anonymous`, e os
+   dados criados pelo teste são revertidos ao final da transação.
+5. Reinicie o Vite ou refaça o build com `VITE_NEON_DATA_API_URL` e
+   `VITE_NEON_AUTH_URL` configuradas. A ausência delas desativa o ranking online. As fases congeladas continuam
+   jogáveis se seus arquivos e os recursos de áudio estiverem acessíveis.
+
+### Adicionar música ou atualizar uma versão
+
+1. Adicione o MIDI a `songs/` e a entrada a `src/songs/catalog.js`.
+2. Rode `npm run ranked:freeze`. Faça commit dos JSONs de `public/ranked/`
+   e de `db/seed_ranked_charts.sql` junto com a alteração no catálogo.
+3. Rode `npm run db:migrate` no banco da publicação para aplicar o seed e
+   publique o novo build. Cada dificuldade tem uma versão baseada nas notas.
+   As pontuações ficam na versão em que foram enviadas.
+
+O navegador calcula e envia a pontuação. O banco verifica a sessão, os limites
+do chart e a frequência dos envios, mas uma pontuação dentro desses limites
+pode ser forjada. As sessões duram 30 dias e o limite diário de envios usa UTC.
+
 ## Proximos passos
 
 - Salvar fases no navegador.

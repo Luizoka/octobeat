@@ -797,6 +797,116 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .results-actions .play-button { width: 100%; }
 .results-actions .menu-button + .menu-button { margin-top: 0; }
 
+/* ── Ranking ──────────────────────────────────────────────────────────── */
+.ranking-screen { display: grid; gap: 14px; }
+.ranking-screen .screen-header, .ranking-screen h1, .ranking-screen p, .ranked-result p { margin: 0; }
+.ranked-filters, .ranked-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ranked-filters label, .ranked-form label { display: grid; gap: 4px; min-width: 0; color: var(--muted); }
+.ranked-filters select, .ranked-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--bg-2);
+}
+.ranked-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ranking-views { justify-content: space-between; }
+.ranking-tab-panel:not([hidden]) { display: grid; gap: 14px; min-width: 0; }
+.account-chip { min-height: 36px; border-radius: 999px; }
+.ranked-link {
+  padding: 0;
+  color: var(--cyan);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ranked-result {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+}
+.ranked-result.is-guest {
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.88rem;
+}
+.ranked-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.ranked-table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+.ranked-table th, .ranked-table td { padding: 8px 12px; border-top: 1px solid var(--line); }
+.ranked-table thead th { color: var(--muted); }
+.ranked-caption { padding: 8px 12px; text-align: left; font-weight: 800; }
+.ranked-own-row { background: rgba(39, 217, 209, 0.14); color: var(--cyan); }
+.account-dialog {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: var(--text);
+}
+.account-dialog:not([open]) { display: none; }
+.account-dialog::backdrop { background: transparent; }
+.account-body { display: grid; gap: 12px; padding: 14px 20px 20px; }
+.account-body p { margin: 0; }
+.account-body .segmented { justify-self: start; }
+.auth-panel { width: min(440px, 100%); }
+.password-field { position: relative; display: block; }
+.ranked-form .password-field input { padding-right: 48px; }
+.password-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.password-toggle:hover, .password-toggle[aria-pressed="true"] { color: var(--text); }
+.password-toggle:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: -4px; border-radius: 10px; }
+.auth-panel .ranked-form { grid-template-columns: minmax(0, 1fr); }
+.profile-panel { width: min(760px, 100%); }
+.profile-since { color: var(--muted); }
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.profile-stats div {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+.profile-stats dt { color: var(--muted); font-size: 0.85rem; }
+.profile-stats dd { margin: 2px 0 0; font-weight: 800; }
+
 /* ── Fogo nos holds épicos ──────────────────────────────────────────────── */
 .note.hold-note.is-epic::before {
   background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--note-color) 70%, #ff8a3d) 30px, var(--note-color));

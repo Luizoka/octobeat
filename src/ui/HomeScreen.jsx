@@ -1,11 +1,13 @@
 import octoLogo from "../images/logo_semfundo.png";
 import { SONG_CATALOG } from "../songs/catalog.js";
 
-export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onSettings }) {
+export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onRanking, onSettings, session, onAccount }) {
   return (
     <section className="screen home-screen" aria-label="Início">
       <header className="screen-header">
-        <span />
+        <button className="menu-button account-chip" type="button" onClick={onAccount}>
+          {session?.username ?? "Entrar"}
+        </button>
         <button className="icon-button" type="button" onClick={onSettings} aria-label="Configurações" title="Configurações">⚙</button>
       </header>
 
@@ -29,6 +31,11 @@ export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportF
 
       <h2 className="home-section-title">Mais</h2>
       <div className="home-cards">
+        <button className="home-card is-featured" type="button" onClick={onRanking} disabled={loading}>
+          <span className="home-card-icon" aria-hidden="true">★</span>
+          <strong>Ranking</strong>
+          <small>Jogue as fases ranqueadas e veja a classificação</small>
+        </button>
         {currentSong && (
           <button className="home-card is-featured" type="button" onClick={onContinue} disabled={loading}>
             <span className="home-card-icon">▶</span>
