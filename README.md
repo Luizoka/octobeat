@@ -44,18 +44,9 @@ No celular/tablet, toque direto nas colunas da pista (a coluna inteira vale, nã
 
 ## Estado atual
 
-- Projeto Node com Vite + React.
-- Jogo com 8 colunas e notas caindo.
-- Teclado, toque (multitouch) e mouse com deteccao de acerto, erro, pontuacao e combo.
-- Layout para celular na horizontal (tela cheia quando o navegador permite).
-- Quatro músicas prontas na tela inicial (pasta `songs/`, catálogo em `src/songs/catalog.js`).
-- Importacao de fases JSON no jogo.
-- Audio local no jogo para tocar fases importadas.
-- Dificuldades leve, normal e rapida.
-- Importador MIDI (`.mid`/`.midi`) e MusicXML (`.musicxml`/`.xml`), com seleção de tracks e geração de chart em 8 lanes.
-- Reprodução integrada de MIDI por SoundFont General MIDI: todas as tracks habilitadas são ouvidas, enquanto as tracks de piano alimentam o gameplay por padrão.
-- Modos de gameplay `Piano`, `Essência da música` e `Personalizado`. A Essência v1 analisa densidade, monofonia, pitch, velocity, duração, atividade e família do instrumento para escolher uma fonte melódica global segura.
-- Painel avançado de diagnóstico com ranking, score explicável, NPS e detecção de tracks suspeitas (30+ notas/s).
+A versão 1.0 traz quatro músicas, 8 colunas, notas longas, Fever e suporte a celular na horizontal. Também é possível importar MIDI e MusicXML para jogar localmente. As fases oficiais têm ranking por música e geral, com contas Google ou usuário e senha, perfis e opção de excluir a conta.
+
+Veja as novidades e limitações no [histórico da versão](CHANGELOG.md) e os detalhes técnicos em [Arquitetura](docs/architecture.md).
 
 ## Formato de fase
 

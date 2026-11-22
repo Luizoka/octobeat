@@ -41,3 +41,34 @@ test("stop volta ao início", () => {
   player.stop();
   assert.equal(player.position, 0);
 });
+
+test("bateria toca amostras inteiras na janela de 3 s e não repete batidas anteriores à retomada", async (t) => {
+  const notes = [
+    { pitch: 36, start: 0, duration: 2 },
+    { pitch: 81, start: 1, duration: 0.1 },
+    { pitch: 42, start: 2, duration: 0.1, velocity: 0.5 },
+    { pitch: 36, start: 4, duration: 0.1 },
+  ];
+  const player = new MidiPlayer({ tracks: [{ id: "bateria", notes }] });
+  t.after(() => player.stop());
+  const starts = [];
+  player.context = { currentTime: 10, resume: async () => {} };
+  player.activeIds.add("bateria");
+  player.players.set("bateria", {
+    player: { start: (note) => starts.push(note), stop: () => {} },
+    drums: new Map([[36, "kick"], [42, "closed-hat"]]),
+  });
+
+  await player.play(1);
+  assert.deepEqual(starts, [{ note: "closed-hat", velocity: 64, time: 11, duration: undefined }]);
+  player.context.currentTime += 0.25;
+  player.feed();
+  assert.deepEqual(starts.map(({ note, time }) => [note, time]), [["closed-hat", 11], ["kick", 13]]);
+});
+
+test("soundfontName casa nomes do MIDI com os do smplr, mesmo sem '_'", async () => {
+  const { soundfontName } = await import("./MidiPlayer.js");
+  assert.equal(soundfontName({ playback: { soundfontName: "synthstrings_1" } }), "synth_strings_1");
+  assert.equal(soundfontName({ instrument: "Acoustic Grand Piano" }), "acoustic_grand_piano");
+  assert.equal(soundfontName({ instrument: "instrumento inventado" }), soundfontName({}));
+});

@@ -1,0 +1,33 @@
+# Roda em todo PR e em push na main: testes + build.
+# Não acessa o banco (sem segredos aqui). Testes de políticas do Neon rodam
+# localmente com `npm run db:migrate -- --dry-run` (ver docs/architecture.md).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Nenhum segredo do banco no bundle
+        run: |
+          if grep -rlE "postgres(ql)?://|npg_|DATABASE_URL" dist; then
+            echo "::error::O bundle contém algo do banco (connection string)."
+            exit 1
+          fi

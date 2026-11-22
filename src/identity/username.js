@@ -27,6 +27,15 @@ export function usernameSlug(value) {
   return value == null ? null : asciiLower(value).replaceAll(" ", "-");
 }
 
+export function normalizeDeletionConfirmation(value, profileSlug) {
+  const name = normalizeUsername(stripAccents(value));
+  return usernameSlug(profileSlug ? name?.replace(/^@/, "") : name);
+}
+
+export function matchesDeletionConfirmation(value, profileSlug) {
+  return normalizeDeletionConfirmation(value, profileSlug) === (profileSlug ?? "excluir");
+}
+
 export function passwordAccountEmail(value) {
   return value == null ? null : `${asciiLower(value).replaceAll(" ", ".")}@${PASSWORD_ACCOUNT_DOMAIN}`;
 }

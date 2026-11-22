@@ -5,10 +5,12 @@ import { readPendingScore, takePendingScore } from "../leaderboard/pendingScore.
 import { AuthDialog } from "./AuthDialog.jsx";
 import { ProfilePanel } from "./ProfilePanel.jsx";
 import { ProfileSetup } from "./ProfileSetup.jsx";
+import { PrivacyPanel } from "./PrivacyPanel.jsx";
 import { DIFFICULTIES } from "./SetupScreen.jsx";
 
 export const AccountFlow = memo(function AccountFlow({
   screen, settingsOpen, authRequest, profileSlug, onCloseAuth, onCloseProfile, onScoreNotice,
+  privacyOpen, onOpenPrivacy, onClosePrivacy,
 }) {
   const identity = useSyncExternalStore(subscribe, getSnapshot);
   const [dismissedUserId, setDismissedUserId] = useState(null);
@@ -46,11 +48,15 @@ export const AccountFlow = memo(function AccountFlow({
     return <ProfilePanel key={profileSlug} slug={profileSlug} ownProfile={identity.profile} onClose={onCloseProfile} />;
   }
   if (authRequest && !authRequest.setup) {
-    return <AuthDialog beforeGoogle={authRequest.beforeGoogle} onClose={onCloseAuth} onSuccess={() => {
-      setDismissedUserId(null);
-      onCloseAuth();
-    }} restoreError={identity.status === "error" ? identity.error : ""} />;
+    return <>
+      <AuthDialog beforeGoogle={authRequest.beforeGoogle} onClose={onCloseAuth} onPrivacy={onOpenPrivacy} onSuccess={() => {
+        setDismissedUserId(null);
+        onCloseAuth();
+      }} restoreError={identity.status === "error" ? identity.error : ""} />
+      {privacyOpen && <PrivacyPanel onClose={onClosePrivacy} />}
+    </>;
   }
+  if (privacyOpen) return <PrivacyPanel onClose={onClosePrivacy} />;
   if (identity.status === "needsProfile" && (authRequest?.setup || dismissedUserId !== identity.user.id)
       && (screen === "home" || screen === "results")) {
     return <ProfileSetup key={identity.user.id} user={identity.user} onSuccess={onCloseAuth} onClose={() => {

@@ -1,5 +1,5 @@
 import { anonymousToken, authUrl, isLeaderboardEnabled, request } from "../leaderboard/dataApi.js";
-import { isValidUsername, normalizeUsername, passwordAccountEmail, PASSWORD_ACCOUNT_DOMAIN, USERNAME_ERROR } from "./username.js";
+import { isValidUsername, normalizeDeletionConfirmation, normalizeUsername, passwordAccountEmail, PASSWORD_ACCOUNT_DOMAIN, USERNAME_ERROR } from "./username.js";
 
 export const MIN_PASSWORD_LENGTH = 8;
 const CONNECTION_ERROR = "Falha de conexão. Verifique sua internet e tente novamente.";
@@ -243,7 +243,17 @@ export async function signUpWithUsername(username, password, displayName = null)
     email: passwordAccountEmail(name), password, name, fetchOptions: FETCH_OPTIONS,
   }), "Não foi possível criar a conta. Confira os dados e tente novamente.");
   const current = await restore(true);
-  if (current.status === "needsProfile") await createProfile(name, displayName);
+  if (current.status !== "needsProfile") return;
+  try {
+    await createProfile(name, displayName);
+  } catch {
+    // Logo após um "Refresh schema cache" a Data API pode recusar por instantes
+    // (visto 2× nos testes). A conta já existe: espera e tenta uma vez mais.
+    // Se ainda falhar, o jogador cai em "Criar perfil" ao entrar (recuperável).
+    await wait(1200);
+    const again = await restore(true);
+    if (again.status === "needsProfile") await createProfile(name, displayName);
+  }
 }
 
 export async function signInWithUsername(username, password) {
@@ -405,4 +415,19 @@ export async function signOut() {
   await authCall((sdk) => sdk.signOut({ fetchOptions: FETCH_OPTIONS }), "Não foi possível sair. Tente novamente.");
   startSessionChange();
   publish({ status: "guest" });
+}
+
+export async function deleteAccount(confirm) {
+  const userId = session?.user.id;
+  const result = await profileRequest("delete_my_account", {
+    p_confirm: normalizeDeletionConfirmation(confirm, snapshot.profile?.username_slug),
+  });
+  if (result?.deleted !== true) throw new Error("Não foi possível confirmar a exclusão da conta.");
+  if (session && session.user.id !== userId) return result;
+
+  startSessionChange();
+  publish({ status: "guest" });
+  // A RPC já apagou a sessão no Neon. Tenta limpar o cookie sem depender da resposta.
+  void authCall((sdk) => sdk.signOut({ fetchOptions: FETCH_OPTIONS }), "").catch(() => {});
+  return result;
 }

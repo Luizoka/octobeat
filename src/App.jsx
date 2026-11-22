@@ -129,10 +129,13 @@ export default function App() {
   const [profileSlug, setProfileSlug] = useState(() => new URLSearchParams(window.location.search).get("perfil"));
   const [scoreNotice, setScoreNotice] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [settings, setSettings] = useState(() => loadSettings(safeStorage(), {
     prefersReducedMotion: typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
   }));
   const closeAuth = useCallback(() => setAuthRequest(null), []);
+  const openPrivacy = useCallback(() => setPrivacyOpen(true), []);
+  const closePrivacy = useCallback(() => setPrivacyOpen(false), []);
   const closeProfile = useCallback(() => {
     setProfileSlug(null);
     const url = new URL(window.location.href);
@@ -984,6 +987,7 @@ export default function App() {
           onSettings={() => setSettingsOpen(true)}
           scoreNotice={scoreNotice}
           onAccount={(slug) => slug ? setProfileSlug(slug) : openAccount()}
+          onPrivacy={openPrivacy}
         />
       )}
 
@@ -1080,7 +1084,8 @@ export default function App() {
 
       {settingsOpen && <SettingsPanel settings={settings} onChange={updateSettings} onClose={() => setSettingsOpen(false)} />}
       <AccountFlow screen={screen} settingsOpen={settingsOpen} authRequest={authRequest} profileSlug={profileSlug}
-        onCloseAuth={closeAuth} onCloseProfile={closeProfile} onScoreNotice={setScoreNotice} />
+        onCloseAuth={closeAuth} onCloseProfile={closeProfile} onScoreNotice={setScoreNotice}
+        privacyOpen={privacyOpen} onOpenPrivacy={openPrivacy} onClosePrivacy={closePrivacy} />
     </main>
   );
 }

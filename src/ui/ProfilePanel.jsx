@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { signOut, updateProfile } from "../identity/auth.js";
+import { deleteAccount, signOut, updateProfile } from "../identity/auth.js";
 import { getPlayerProfile } from "../leaderboard/client.js";
 import { AccountDialog } from "./AccountDialog.jsx";
+import { DeleteAccountForm } from "./DeleteAccountForm.jsx";
 import { DIFFICULTIES } from "./SetupScreen.jsx";
 
 const COLORS = {
@@ -48,7 +49,7 @@ export function ProfilePanel({ slug, ownProfile, onClose }) {
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [action, setAction] = useState(null);
-  const [actionError, setActionError] = useState("");
+  const [actionError, setActionError] = useState(null);
   const [editing, setEditing] = useState(false);
   const own = slug === ownProfile?.username_slug;
   const profile = loadedProfile?.own && !own ? null : loadedProfile;
@@ -64,19 +65,21 @@ export function ProfilePanel({ slug, ownProfile, onClose }) {
   }, [attempt, slug, own]);
 
   async function act(name, run) {
+    if (action) return;
     setAction(name);
-    setActionError("");
+    setActionError(null);
     try {
       await run();
     } catch (reason) {
-      setActionError(reason.message);
+      setActionError({ name, message: reason.message });
     } finally {
       setAction(null);
     }
   }
 
   return (
-    <AccountDialog title={details?.display_name ?? "Perfil"} className="profile-panel" onClose={onClose}>
+    <AccountDialog title={details?.display_name ?? "Perfil"} className="profile-panel"
+      onClose={action === "delete" ? () => {} : onClose}>
       <div className="account-body">
         {details && (
           <div className="profile-identity">
@@ -136,7 +139,7 @@ export function ProfilePanel({ slug, ownProfile, onClose }) {
             )}
           </>
         )}
-        {actionError && <p role="alert">{actionError}</p>}
+        {actionError && actionError.name !== "delete" && <p role="alert">{actionError.message}</p>}
         {own && <>
           {editing && <ProfileEditor profile={details} busy={Boolean(action)} onSave={(fields) => act("save", async () => {
             await updateProfile(fields);
@@ -144,13 +147,22 @@ export function ProfilePanel({ slug, ownProfile, onClose }) {
           })} />}
           <div className="ranked-actions">
             <button className="menu-button" type="button" disabled={Boolean(action)} onClick={() => {
-              setActionError("");
+              setActionError(null);
               setEditing(!editing);
             }}>{editing ? "Cancelar edição" : "Editar perfil"}</button>
             <button className="menu-button" type="button" disabled={Boolean(action)} onClick={() => act("leave", async () => {
               await signOut();
               onClose();
             })}>{action === "leave" ? "Saindo…" : "Sair"}</button>
+          </div>
+          <div className="profile-danger">
+            <h3>Zona de perigo</h3>
+            <DeleteAccountForm profileSlug={ownProfile.username_slug} busy={Boolean(action)} deleting={action === "delete"}
+              onCancel={() => { if (actionError?.name === "delete") setActionError(null); }}
+              error={actionError?.name === "delete" ? actionError.message : ""} onDelete={(confirm) => act("delete", async () => {
+                await deleteAccount(confirm);
+                onClose();
+              })} />
           </div>
         </>}
       </div>

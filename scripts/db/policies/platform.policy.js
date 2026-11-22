@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 export const PUBLIC_RPC = {
   anonymous: ["get_global_leaderboard", "get_leaderboard", "get_player_profile", "username_available"],
   authenticated: [
-    "create_my_profile", "get_global_leaderboard", "get_leaderboard", "get_my_profile",
+    "create_my_profile", "delete_my_account", "get_global_leaderboard", "get_leaderboard", "get_my_profile",
     "get_player_profile", "submit_score", "update_my_profile", "username_available",
   ],
 };
