@@ -10,7 +10,7 @@ import { selectGameplayTracks } from "../src/music-analysis/selectGameplayTracks
 import { SONG_CATALOG } from "../src/songs/catalog.js";
 
 const rankedDir = new URL("../public/ranked/", import.meta.url);
-const dbDir = new URL("../db/", import.meta.url);
+const dbDir = new URL("../db/seeds/", import.meta.url);
 const difficulties = ["easy", "normal", "hard"];
 const index = [];
 const seed = [];
@@ -43,7 +43,7 @@ for (const { id: slug, url, file, title, artist } of SONG_CATALOG) {
 
 await writeFile(new URL("index.json", rankedDir), JSON.stringify(index, null, 2) + "\n");
 await mkdir(dbDir, { recursive: true });
-await writeFile(new URL("seed_ranked_charts.sql", dbDir), [
+await writeFile(new URL("ranked_charts.sql", dbDir), [
   "-- Gerado por npm run ranked:freeze.",
   "INSERT INTO public.ranked_charts (song_slug, difficulty, chart_version, title, note_count, max_score)",
   "VALUES",
