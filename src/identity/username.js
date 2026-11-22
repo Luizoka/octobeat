@@ -1,4 +1,10 @@
-export const USERNAME_ERROR = "Use só letras, números e espaços no usuário (até 255 caracteres).";
+export const USERNAME_ERROR = "Use só letras (sem acento), números e espaços no usuário.";
+
+/** "Jogador Anônimo" → "Jogador Anonimo" (ç → c, ã → a…). O @usuário é sem acento; o nome exibido pode ter. */
+export function stripAccents(value) {
+  return value == null ? value : value.normalize("NFD").replace(/\p{M}/gu, "");
+}
+
 export const PASSWORD_ACCOUNT_DOMAIN = "contas.octobeat.luizoka.dev";
 
 export function normalizeUsername(value) {

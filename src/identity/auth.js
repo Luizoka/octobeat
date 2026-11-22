@@ -232,7 +232,8 @@ export async function usernameAvailable(username) {
   return { available: result?.available === true, reason: result?.reason ?? "Este nome de usuário já está em uso." };
 }
 
-export async function signUpWithUsername(username, password) {
+/** `displayName`: como a pessoa digitou (pode ter acento); o @usuário vai sem acento. */
+export async function signUpWithUsername(username, password, displayName = null) {
   const name = checkedUsername(username);
   if (password.length < MIN_PASSWORD_LENGTH) throw new Error(`A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
   if (password.length > 128) throw new Error("A senha pode ter até 128 caracteres.");
@@ -242,7 +243,7 @@ export async function signUpWithUsername(username, password) {
     email: passwordAccountEmail(name), password, name, fetchOptions: FETCH_OPTIONS,
   }), "Não foi possível criar a conta. Confira os dados e tente novamente.");
   const current = await restore(true);
-  if (current.status === "needsProfile") await createProfile(name);
+  if (current.status === "needsProfile") await createProfile(name, displayName);
 }
 
 export async function signInWithUsername(username, password) {

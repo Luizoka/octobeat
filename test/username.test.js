@@ -24,3 +24,12 @@ test("deriva slug e e-mail a partir do nome normalizado", () => {
   assert.equal(usernameSlug(null), null);
   assert.equal(passwordAccountEmail(null), null);
 });
+
+test("stripAccents tira acentos e cedilha, mantendo o resto", async () => {
+  const { stripAccents, isValidUsername } = await import("../src/identity/username.js");
+  assert.equal(stripAccents("Jogador Anônimo"), "Jogador Anonimo");
+  assert.equal(stripAccents("João Conceição Müller"), "Joao Conceicao Muller");
+  assert.ok(isValidUsername(stripAccents("Jogador Anônimo")));
+  assert.equal(stripAccents("abc 123"), "abc 123");
+  assert.equal(stripAccents(null), null);
+});
