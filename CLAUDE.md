@@ -38,6 +38,16 @@ Responda e escreva comentários em português.
 - `npm run eval:songs` — regenera os MIDIs sintéticos (determinístico).
 - O corpus tem só 1 música real; as sintéticas reproduzem problemas específicos. Mais MIDIs reais em `test-songs/` deixam a avaliação mais confiável.
 
+## Ranking (Neon, sem backend)
+
+- O navegador fala direto com a **Neon Data API** (PostgREST) via `fetch` em `src/leaderboard/client.js`. A Data API exige JWT até para o papel `anonymous`: o cliente pega um JWT anônimo em `<VITE_NEON_AUTH_URL>/token/anonymous` (sem criar conta).
+- Login do jogo (usuário + senha) é **nosso, no Postgres** (funções `register`/`login`/`submit_score`… em `db/`), não o Neon Auth. Usuário: letras, números e espaços (espaços repetidos viram um); senha ≥ 6.
+- Segurança toda no banco: RLS + `anonymous` só executa as RPCs públicas; sem acesso direto às tabelas. `npm run db:test-policies` testa isso no banco real (com rollback).
+- **Fases congeladas:** `public/ranked/<slug>/<dificuldade>.json` (`npm run ranked:freeze`). Música do catálogo nas opções padrão (modo essência, duas mãos) usa a fase congelada e vale para o ranking, pela tela inicial ou pela tela Ranking. Mudar o gerador **não** altera essas fases; regerar cria um `chart_version` novo (ranking novo).
+- `npm run db:migrate` reaplica todos os `db/*.sql` (idempotentes) numa transação. Mudou o tipo de retorno de uma função → `DROP FUNCTION` antes. `position` em `RETURNS TABLE` precisa de aspas.
+- **Depois de todo `db:migrate`: Neon → Data API → "Refresh schema cache".** `NOTIFY pgrst` não funciona no Neon; sem o refresh, RPC nova/alterada dá 404.
+- `.env` (fora do git): `DATABASE_URL` (só scripts locais, nunca `VITE_`), `VITE_NEON_DATA_API_URL`, `VITE_NEON_AUTH_URL`. Produção precisa só das duas `VITE_`.
+
 ## Decisões já tomadas
 
 - **Não deslocar o tempo das notas para a grade.** O áudio toca o MIDI original e a janela de "Perfeito" é ±55 ms; a grade só decide prioridade/espaçamento.
@@ -120,3 +130,25 @@ Por janela (ex.: 1 compasso), escolher as notas de maior importância até ating
 - Não adicionar dependências sem perguntar.
 - Antes de mudanças grandes, explicar o plano e esperar confirmação.
 - Se algo não ficar claramente melhor nas métricas ou ao jogar, dizer isso honestamente em vez de forçar a mudança.
+
+## Delegação ao Codex
+
+Objetivo: economizar tokens do Claude usando o Codex para o trabalho braçal.
+
+- Claude é responsável por: entender o pedido, planejar, decidir a arquitetura,
+  quebrar em tarefas e revisar o resultado.
+- Delegue ao Codex (via `/codex:rescue` / agente `codex:codex-rescue`; não há ferramenta MCP `codex`).
+  O sandbox do Codex não acessa a rede (porta 5432): migração e testes no Neon rodam pelo Claude.
+  Delegue:
+  - implementações novas com mais de ~50 linhas;
+  - refactors que mexem em vários arquivos;
+  - escrever ou corrigir testes;
+  - boilerplate, migrações, renomeações em massa;
+  - investigação de bugs que exige ler muitos arquivos.
+- Mantenha com o Claude: mudanças pequenas (algumas linhas), decisões de design,
+  revisão final e mensagens para o usuário.
+- Ao delegar, mande ao Codex uma especificação curta e objetiva: arquivos envolvidos,
+  o que fazer, critérios de pronto e restrições. Não cole arquivos inteiros no prompt.
+- Depois que o Codex terminar, revise o diff (não o arquivo todo), rode os testes
+  e só então reporte ao usuário.
+- Se o Codex falhar duas vezes na mesma tarefa, assuma e resolva você mesmo.
