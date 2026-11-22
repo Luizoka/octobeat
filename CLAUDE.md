@@ -131,15 +131,17 @@ Por janela (ex.: 1 compasso), escolher as notas de maior importância até ating
 - Antes de mudanças grandes, explicar o plano e esperar confirmação.
 - Se algo não ficar claramente melhor nas métricas ou ao jogar, dizer isso honestamente em vez de forçar a mudança.
 
-## Delegação ao Codex
+## Delegação ao Codex (opcional)
 
-Objetivo: economizar tokens do Claude usando o Codex para o trabalho braçal.
+O Codex é um apoio **opcional** para economizar tokens no trabalho braçal. O projeto
+não depende dele: sem o Codex (plugin ausente, `/codex:setup` não pronto ou o
+usuário pedir), o Claude faz tudo sozinho, seguindo as mesmas regras de trabalho.
+
+Quando o Codex estiver disponível:
 
 - Claude é responsável por: entender o pedido, planejar, decidir a arquitetura,
   quebrar em tarefas e revisar o resultado.
-- Delegue ao Codex (via `/codex:rescue` / agente `codex:codex-rescue`; não há ferramenta MCP `codex`).
-  O sandbox do Codex não acessa a rede (porta 5432): migração e testes no Neon rodam pelo Claude.
-  Delegue:
+- Delegue via `/codex:rescue` (agente `codex:codex-rescue`):
   - implementações novas com mais de ~50 linhas;
   - refactors que mexem em vários arquivos;
   - escrever ou corrigir testes;
@@ -147,8 +149,10 @@ Objetivo: economizar tokens do Claude usando o Codex para o trabalho braçal.
   - investigação de bugs que exige ler muitos arquivos.
 - Mantenha com o Claude: mudanças pequenas (algumas linhas), decisões de design,
   revisão final e mensagens para o usuário.
-- Ao delegar, mande ao Codex uma especificação curta e objetiva: arquivos envolvidos,
+- Ao delegar, mande uma especificação curta e objetiva: arquivos envolvidos,
   o que fazer, critérios de pronto e restrições. Não cole arquivos inteiros no prompt.
 - Depois que o Codex terminar, revise o diff (não o arquivo todo), rode os testes
   e só então reporte ao usuário.
+- O sandbox do Codex não acessa a rede (ex.: porta 5432 do Neon): migração e testes
+  no banco rodam pelo Claude.
 - Se o Codex falhar duas vezes na mesma tarefa, assuma e resolva você mesmo.
