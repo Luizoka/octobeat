@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## [1.0.1] - 2026-11-22
+
+- Início das músicas: as primeiras notas agora descem desde o topo da pista (pré-rolo com folga antes do áudio), em vez de aparecerem perto da linha de acerto logo após a contagem.
+- Perfil reorganizado: cabeçalho com nome em destaque, números em cartões, seções separadas e zona de perigo isolada; edição com Cancelar/Salvar.
+
 ## [1.0.0] - 2026-11-22
 
 - Jogo de ritmo com 8 colunas, quatro músicas incluídas, notas longas (holds) e multiplicador Fever por combo.

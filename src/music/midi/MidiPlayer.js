@@ -175,7 +175,9 @@ export class MidiPlayer {
    * costuma terminar junto com o MIDI. Travado, a partida nunca acabava.
    */
   currentTime() {
-    return this.playing ? Math.max(0, this.context.currentTime - this.startedAt) : this.position;
+    // Pode ser NEGATIVO: play(-1.2) é o pré-rolo do início (silêncio enquanto
+    // as primeiras notas descem; ver src/game/preroll.js). Não travar em 0.
+    return this.playing ? this.context.currentTime - this.startedAt : this.position;
   }
 
   /**

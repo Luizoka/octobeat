@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { importSong } from "./music/importSong.js";
 import { generateChart } from "./chart/generateChart.js";
+import { startPosition } from "./game/preroll.js";
 import { normalizeNotes } from "./game/normalizeNotes.js";
 import { judgeNote } from "./game/judgeNote.js";
 import { MidiPlayer } from "./music/midi/MidiPlayer.js";
@@ -474,11 +475,14 @@ export default function App() {
       return;
     }
     startingRef.current = "start";
+    // Pré-rolo: se a 1ª nota vem cedo, a partida começa antes do 0 para ela
+    // descer desde o topo (o áudio entra no 0). Ver src/game/preroll.js.
+    const from = startPosition(nextNotes, FALL_DURATION);
 
     // O AudioContext é criado/retomado antes do 1º await: ainda dentro do toque.
     if (source === "song" && (midi?.song ?? importedSong)?.source?.format === "MIDI") {
       try {
-        const started = await playMidi(0, () => waitForCountdown(sequence), midi);
+        const started = await playMidi(from, () => waitForCountdown(sequence), midi);
         if (!started) return;
       } catch (error) {
         // Cancelado de propósito (giro, troca de app): o carregamento falha, mas não é erro.
@@ -491,7 +495,7 @@ export default function App() {
     } else {
       unlockDemoAudio();
       if (!await waitForCountdown(sequence)) return;
-      startDemoSong(nextNotes, 0);
+      startDemoSong(nextNotes, from);
     }
     // Interrompida (giro, troca de app) entre a contagem e o play.
     if (sequence !== startSequenceRef.current) return;
