@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { init, isAuthEnabled, MIN_PASSWORD_LENGTH, signInWithGoogle, signInWithUsername, signUpWithUsername } from "../identity/auth.js";
+import { stripAccents, USERNAME_ERROR } from "../identity/username.js";
 import { AccountDialog } from "./AccountDialog.jsx";
 import { SegmentedTabs } from "./SegmentedTabs.jsx";
 import { UsernameAvailability } from "./UsernameAvailability.jsx";
@@ -18,7 +19,9 @@ function EyeIcon({ open }) {
 
 export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
   const [creating, setCreating] = useState(false);
-  const [username, setUsername] = useState("");
+  // O que a pessoa digitou (pode ter acento) vira o nome exibido; o @usuário vai sem acento.
+  const [typedName, setTypedName] = useState("");
+  const username = stripAccents(typedName);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -57,7 +60,8 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
     const password = form.get("password");
     void run(async () => {
       if (creating && form.get("confirmation") !== password) throw new Error("As senhas não coincidem.");
-      await (creating ? signUpWithUsername : signInWithUsername)(username, password);
+      if (creating) await signUpWithUsername(username, password, typedName.trim() || null);
+      else await signInWithUsername(username, password);
       if (active.current) onSuccess();
     });
   }
@@ -109,7 +113,7 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
         <SegmentedTabs label="Acesso à conta" labels={["Entrar", "Criar conta"]} selected={Number(creating)}
           onSelect={changeMode} disabled={busy}>
           <form className="ranked-form" onSubmit={authenticate}>
-            <label>Usuário<input name="username" value={username} onChange={(event) => setUsername(event.target.value)}
+            <label>Usuário<input name="username" value={typedName} onChange={(event) => setTypedName(event.target.value)}
               autoComplete="username" autoCapitalize="none" spellCheck={false}
               required data-initial-focus /></label>
             {creating && enabled && <UsernameAvailability username={username} />}
@@ -129,7 +133,8 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
             {creating && <label>Confirmar senha<input name="confirmation" type={showPassword ? "text" : "password"}
               autoComplete="new-password" required /></label>}
             {!enabled && <p role="status">Ranking online indisponível.</p>}
-            {error && <p role="alert">{error}</p>}
+            {/* No cadastro o aviso de formato já aparece logo abaixo do usuário: não repetir. */}
+            {error && !(creating && error === USERNAME_ERROR) && <p role="alert">{error}</p>}
             <button className="play-button" type="submit" disabled={!enabled || busy}>
               {busy ? "Aguarde…" : creating ? "Criar conta" : "Entrar"}
             </button>
