@@ -14,6 +14,10 @@ export default async function identityPolicies({ client, check, suffix }) {
   async function as(role, sub = null) {
     await q("RESET ROLE");
     await q("SELECT set_config('request.jwt.claims', $1, true)", [JSON.stringify(sub ? { sub, role } : { role })]);
+    // Simulação via request.jwt.claims: o pg_session_jwt às vezes não a enxerga se a
+    // 1ª leitura acontece já sob o papel da API. Ler uma vez como dono estabiliza.
+    // (Só nos testes: em produção a Data API entrega o JWT por outro caminho.)
+    await q("SELECT auth.uid()");
     await q(`SET LOCAL ROLE ${role}`);
   }
   const asOwner = () => q("RESET ROLE");

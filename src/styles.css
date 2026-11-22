@@ -189,6 +189,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   background: rgba(39, 217, 209, 0.12);
 }
 .home-status { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 24px; margin-top: 20px; color: var(--muted); text-align: center; }
+.home-footer { text-align: center; }
 
 /* ── Preparar ───────────────────────────────────────────────────────────── */
 .song-card {
@@ -880,7 +881,18 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .account-body { display: grid; gap: 12px; padding: 14px 20px 20px; }
 .account-body p { margin: 0; }
 .account-body .segmented { justify-self: start; }
+.ranked-link.small-account-link { justify-self: start; min-height: 32px; font-size: 0.85rem; }
 .auth-panel { width: min(440px, 100%); }
+.password-notice {
+  padding: 10px 12px;
+  border-inline-start: 3px solid #ffc75e;
+  border-radius: 6px;
+  background: rgba(255, 199, 94, 0.1);
+  font-size: 0.9rem;
+}
+.privacy-panel .account-body { line-height: 1.5; }
+.privacy-panel .account-body h3 { margin-top: 0; }
+.privacy-panel .account-body p + p { margin-top: 6px; }
 .password-field { position: relative; display: block; }
 .ranked-form .password-field input { padding-right: 48px; }
 .password-toggle {
@@ -901,6 +913,10 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .password-toggle:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: -4px; border-radius: 10px; }
 .auth-panel .ranked-form { grid-template-columns: minmax(0, 1fr); }
 .profile-panel { width: min(760px, 100%); }
+.profile-danger { border-top: 1px solid var(--line); }
+.profile-danger h3 { color: var(--muted); }
+.ranked-form.delete-account-form { grid-template-columns: minmax(0, 1fr); }
+.menu-button.delete-account-button { color: #fff; background: #a32b3f; }
 .profile-panel h2, .profile-identity p, .profile-bio { overflow-wrap: anywhere; min-width: 0; }
 .profile-identity { display: flex; align-items: center; gap: 12px; }
 .profile-avatar {

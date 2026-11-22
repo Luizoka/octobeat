@@ -88,7 +88,11 @@ ranking novo; o antigo fica arquivado, nunca reescrito.
 | RPC | Visitante | Logado |
 |---|:-:|:-:|
 | `username_available`, `get_leaderboard`, `get_global_leaderboard`, `get_player_profile` | ✔ | ✔ |
-| `get_my_profile`, `create_my_profile`, `update_my_profile`, `submit_score` | | ✔ |
+| `get_my_profile`, `create_my_profile`, `update_my_profile`, `submit_score`, `delete_my_account` | | ✔ |
+
+- `delete_my_account(p_confirm)` (005): o jogador apaga a própria conta no Neon
+  Auth; perfil e scores somem em cascata. Confirmação checada no servidor
+  (o próprio @usuário, ou "excluir" se ainda não tem perfil).
 
 ## Banco
 
@@ -135,6 +139,19 @@ GRANT EXECUTE ON FUNCTION public.fazer_coisa(...) TO authenticated;
 
 Erros para o usuário: `RAISE EXCEPTION 'mensagem em português'` (o cliente
 mostra `message` quando `code = P0001`).
+
+### Moderação (sem painel ainda — #9)
+
+`npm run db:moderate -- list | show <@usuário> | hide | suspend | restore <@usuário> | delete-score <id>`
+(roda localmente com `DATABASE_URL`). `hide` tira dos rankings e do perfil
+público; `suspend` impede novos envios; `delete-score` apaga um envio forjado.
+
+### Conexão dos scripts
+
+Os scripts (`scripts/db/`) usam a conexão **direta** do Neon, não o pooler:
+`connect.js` tira o `-pooler` do host. O `db:migrate` segura uma trava de
+sessão e os testes trocam de papel; no pooler (PgBouncer, modo transação) cada
+transação pode cair em outro processo e a trava fica presa.
 
 ### Testes de políticas
 

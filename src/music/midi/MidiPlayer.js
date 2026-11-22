@@ -1,5 +1,6 @@
-import { Scheduler, Soundfont } from "smplr";
+import { DrumMachine, getSoundfontNames, Scheduler, Soundfont } from "smplr";
 import { classifyMidiTrack, isPianoFamily } from "./classifyTrack.js";
+import { mapGmDrums } from "./gmDrums.js";
 
 const FALLBACK_INSTRUMENT = "acoustic_grand_piano";
 
@@ -15,12 +16,18 @@ const AUDIO_LOOKAHEAD_MS = 1000;
 const FEED_HORIZON_S = 3;
 const FEED_INTERVAL_MS = 250;
 
-function soundfontName(track) {
-  if (track.playback?.isPercussion) return "percussion";
-  const name = track.playback?.soundfontName || track.instrument || "";
-  return name.toLowerCase()
+// Nomes oficiais do smplr ("synth_strings_1"…). O MIDI às vezes traz o nome sem
+// algum "_" ("synthstrings_1") e o download dava 404: casa ignorando os "_" e,
+// sem correspondência, usa o instrumento padrão direto (sem pedir arquivo inexistente).
+const KNOWN_SOUNDFONTS = new Set(getSoundfontNames());
+const SOUNDFONT_BY_COMPACT = new Map([...KNOWN_SOUNDFONTS].map((name) => [name.replaceAll("_", ""), name]));
+
+export function soundfontName(track) {
+  const name = (track.playback?.soundfontName || track.instrument || "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "") || FALLBACK_INSTRUMENT;
+    .replace(/^_|_$/g, "");
+  if (KNOWN_SOUNDFONTS.has(name)) return name;
+  return SOUNDFONT_BY_COMPACT.get(name.replaceAll("_", "")) ?? FALLBACK_INSTRUMENT;
 }
 
 export class MidiPlayer {
@@ -76,22 +83,29 @@ export class MidiPlayer {
     if (this.players.has(track.id) || this.disposed) return;
     const gain = this.context.createGain();
     gain.connect(this.context.destination);
-    const family = track.family || classifyMidiTrack(track.playback);
-    const player = Soundfont(this.context, { instrument: soundfontName(track), destination: gain, scheduler: this.scheduler });
+    const isPercussion = track.playback?.isPercussion || track.playback?.channel === 9;
+    const family = isPercussion ? "percussion" : track.family || classifyMidiTrack(track.playback);
+    const options = { destination: gain, scheduler: this.scheduler };
+    const player = isPercussion
+      ? DrumMachine(this.context, { ...options, instrument: "TR-808" })
+      : Soundfont(this.context, { ...options, instrument: soundfontName(track) });
     try {
       await player.ready;
     } catch {
-      // Um preset ausente não pode silenciar a música inteira.
       player.dispose?.();
-      if (this.disposed) { gain.disconnect(); return; }
-      const fallback = Soundfont(this.context, { instrument: FALLBACK_INSTRUMENT, destination: gain, scheduler: this.scheduler });
+      // Os SoundFonts não oferecem um kit GM. Se a bateria falhar, esta track fica muda.
+      if (this.disposed || isPercussion) { gain.disconnect(); return; }
+      const fallback = Soundfont(this.context, { ...options, instrument: FALLBACK_INSTRUMENT });
       await fallback.ready;
       if (this.disposed) { fallback.dispose?.(); gain.disconnect(); return; }
       this.players.set(track.id, { player: fallback, gain, family });
       return;
     }
     if (this.disposed) { player.dispose?.(); gain.disconnect(); return; }
-    this.players.set(track.id, { player, gain, family });
+    // O smplr toca a peça pelo nome do GRUPO ("kick", "hihat-close"…); getSampleNames()
+    // devolve variações ("kick/bd0000") que não casam com o mapa GM.
+    const drums = isPercussion ? mapGmDrums(player.getGroupNames?.() ?? player.getSampleNames()) : null;
+    this.players.set(track.id, { player, gain, family, drums });
   }
 
   setMix(mode) {
@@ -116,10 +130,11 @@ export class MidiPlayer {
     this.startedAt = this.context.currentTime - position;
     // Por track: notas ordenadas e o índice da próxima a entregar.
     this.queues = new Map();
-    this.players.forEach((_, trackId) => {
+    this.players.forEach(({ drums }, trackId) => {
       if (!this.activeIds.has(trackId)) return;
       const track = this.song.tracks.find((item) => item.id === trackId);
-      const notes = (track?.notes ?? []).filter((note) => note.start + note.duration > position);
+      const notes = (track?.notes ?? []).filter((note) =>
+        drums ? note.start >= position : note.start + note.duration > position);
       this.queues.set(trackId, { notes, next: 0 });
     });
     this.playing = true;
@@ -131,18 +146,20 @@ export class MidiPlayer {
   feed() {
     if (!this.playing || this.disposed) return;
     const horizon = this.currentTime() + FEED_HORIZON_S;
-    this.players.forEach(({ player }, trackId) => {
+    this.players.forEach(({ player, drums }, trackId) => {
       const queue = this.queues?.get(trackId);
       if (!queue) return;
       while (queue.next < queue.notes.length && queue.notes[queue.next].start < horizon) {
-        const note = queue.notes[queue.next];
+        const note = queue.notes[queue.next++];
+        const sample = drums ? drums.get(note.pitch) : note.pitch;
+        if (sample == null) continue;
         player.start({
-          note: note.pitch,
+          note: sample,
           velocity: Math.round((note.velocity ?? 0.8) * 127),
           time: this.startedAt + note.start,
-          duration: note.duration,
+          // A bateria toca a amostra inteira, mesmo com um note-off curto no MIDI.
+          duration: drums ? undefined : note.duration,
         });
-        queue.next += 1;
       }
     });
   }

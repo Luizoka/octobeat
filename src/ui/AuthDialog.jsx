@@ -17,7 +17,7 @@ function EyeIcon({ open }) {
   );
 }
 
-export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
+export function AuthDialog({ beforeGoogle, onClose, onSuccess, onPrivacy, restoreError }) {
   const [creating, setCreating] = useState(false);
   // O que a pessoa digitou (pode ter acento) vira o nome exibido; o @usuário vai sem acento.
   const [typedName, setTypedName] = useState("");
@@ -132,6 +132,9 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
             </label>
             {creating && <label>Confirmar senha<input name="confirmation" type={showPassword ? "text" : "password"}
               autoComplete="new-password" required /></label>}
+            {creating && <p className="password-notice">
+              <strong>Guarde sua senha:</strong> contas com usuário e senha não têm recuperação por e-mail. Se preferir, entre com Google.
+            </p>}
             {!enabled && <p role="status">Ranking online indisponível.</p>}
             {/* No cadastro o aviso de formato já aparece logo abaixo do usuário: não repetir. */}
             {error && !(creating && error === USERNAME_ERROR) && <p role="alert">{error}</p>}
@@ -150,6 +153,9 @@ export function AuthDialog({ beforeGoogle, onClose, onSuccess, restoreError }) {
             Entrar com Google
           </button>
         )}
+        <button className="ranked-link small-account-link" type="button" onClick={onPrivacy}>
+          Como usamos seus dados
+        </button>
       </div>
     </AccountDialog>
   );

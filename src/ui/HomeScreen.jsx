@@ -3,7 +3,7 @@ import { getSnapshot, subscribe } from "../identity/auth.js";
 import octoLogo from "../images/logo_semfundo.png";
 import { SONG_CATALOG } from "../songs/catalog.js";
 
-export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onRanking, onSettings, scoreNotice, onAccount }) {
+export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onRanking, onSettings, scoreNotice, onAccount, onPrivacy }) {
   const identity = useSyncExternalStore(subscribe, getSnapshot);
   const checkingAccount = identity.status === "loading";
   // "error" = não deu para verificar a sessão (ex.: volta do Google falhou):
@@ -65,6 +65,9 @@ export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportF
         {loading && <span className="loading-spinner" />}
         {status}
       </p>
+      <footer className="home-footer">
+        <button className="ranked-link small-account-link" type="button" onClick={onPrivacy}>Privacidade</button>
+      </footer>
     </section>
   );
 }

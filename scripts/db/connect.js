@@ -12,6 +12,11 @@ export async function connectDb() {
     connectionString = value?.replace(/^(["'])(.*)\1$/, "$2");
   }
   if (!connectionString) throw new Error("Configure DATABASE_URL no arquivo .env.");
+  // Scripts usam a conexão DIRETA, não o pooler do Neon (PgBouncer em modo
+  // transação): o db:migrate segura uma trava de sessão (pg_advisory_lock) e os
+  // testes de políticas trocam de papel; no pooler cada transação pode cair em
+  // outro processo do servidor. Mesmo usuário/senha, só sem "-pooler" no host.
+  connectionString = connectionString.replace(/(@[^/@]*?)-pooler\./, "$1.");
   const client = new pg.Client({ connectionString });
   await client.connect();
   return client;
