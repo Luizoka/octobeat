@@ -18,14 +18,13 @@ import { useGameEffects } from "./effects/useGameEffects.js";
 import { HomeScreen } from "./ui/HomeScreen.jsx";
 import { RankingScreen } from "./ui/RankingScreen.jsx";
 import { RankedResult } from "./ui/RankedResult.jsx";
-import { AuthDialog } from "./ui/AuthDialog.jsx";
-import { ProfilePanel } from "./ui/ProfilePanel.jsx";
+import { AccountFlow } from "./ui/AccountFlow.jsx";
 import { DIFFICULTIES, SetupScreen } from "./ui/SetupScreen.jsx";
 import { GameScreen } from "./ui/GameScreen.jsx";
 import { ResultsScreen } from "./ui/ResultsScreen.jsx";
 import { SettingsPanel } from "./ui/SettingsPanel.jsx";
 import { RotateOverlay } from "./ui/RotateOverlay.jsx";
-import { loadSession, saveSession } from "./leaderboard/session.js";
+import { getSnapshot } from "./identity/auth.js";
 import { loadRankedChart } from "./leaderboard/client.js";
 import { loadCatalogFile } from "./songs/catalog.js";
 const FALL_DURATION = 1.55; // segundos que uma nota leva do topo até a linha
@@ -126,16 +125,21 @@ export default function App() {
   const [catalogFrozen, setCatalogFrozen] = useState(null);
   const [catalogRanked, setCatalogRanked] = useState(null);
   const catalogSlugRef = useRef(null);
-  const [rankingSession, setRankingSession] = useState(loadSession);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [profileUsername, setProfileUsername] = useState(null);
+  const [authRequest, setAuthRequest] = useState(null);
+  const [profileSlug, setProfileSlug] = useState(() => new URLSearchParams(window.location.search).get("perfil"));
+  const [scoreNotice, setScoreNotice] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(() => loadSettings(safeStorage(), {
     prefersReducedMotion: typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
   }));
-  useEffect(() => { saveSession(rankingSession); }, [rankingSession]);
-  const clearRankingSession = useCallback((token) => {
-    setRankingSession((current) => current?.token === token ? null : current);
+  const closeAuth = useCallback(() => setAuthRequest(null), []);
+  const closeProfile = useCallback(() => {
+    setProfileSlug(null);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("perfil")) {
+      url.searchParams.delete("perfil");
+      window.history.replaceState(null, "", url);
+    }
   }, []);
   const updateSettings = useCallback((patch) => setSettings((current) => sanitizeSettings({ ...current, ...patch })), []);
 
@@ -913,9 +917,8 @@ export default function App() {
     setScreen("ranking");
   }
 
-  function updateRankingSession(session) {
-    setRankingSession(session);
-    setAuthOpen(false);
+  function openAccount(beforeGoogle) {
+    setAuthRequest({ beforeGoogle, setup: getSnapshot().status === "needsProfile" });
   }
 
   /**
@@ -979,14 +982,14 @@ export default function App() {
           onContinue={() => openSetup("song")}
           onRanking={openRanking}
           onSettings={() => setSettingsOpen(true)}
-          session={rankingSession}
-          onAccount={() => rankingSession ? setProfileUsername(rankingSession.username) : setAuthOpen(true)}
+          scoreNotice={scoreNotice}
+          onAccount={(slug) => slug ? setProfileSlug(slug) : openAccount()}
         />
       )}
 
       {screen === "ranking" && (
         <RankingScreen initialChart={rankedChart} initialDifficulty={difficulty} handMode={settings.handMode}
-          session={rankingSession} onProfile={setProfileUsername} onPlay={playRanked}
+          onProfile={setProfileSlug} onPlay={playRanked}
           onBack={goHome} onSettings={() => setSettingsOpen(true)}
           canFullscreen={canFullscreen && !fullscreenActive} status={setupStatus} />
       )}
@@ -1060,9 +1063,9 @@ export default function App() {
           onReplay={restartGame}
           onSetup={() => openSetup(phaseSource)}
           onHome={goHome}
-          rankedResult={(rankedChart || catalogRanked) && <RankedResult chart={rankedChart || catalogRanked} stats={stats}
+          rankedResult={(rankedChart || catalogRanked) && <RankedResult chart={rankedChart || catalogRanked} title={title} stats={stats}
             eligible={playedHandModeRef.current === "both" && settings.handMode === "both"}
-            session={rankingSession} onSessionExpired={clearRankingSession} onAuth={() => setAuthOpen(true)} />}
+            onAuth={openAccount} />}
         />
       )}
 
@@ -1076,9 +1079,8 @@ export default function App() {
       )}
 
       {settingsOpen && <SettingsPanel settings={settings} onChange={updateSettings} onClose={() => setSettingsOpen(false)} />}
-      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} onSuccess={updateRankingSession} />}
-      {profileUsername && <ProfilePanel key={profileUsername} username={profileUsername} session={rankingSession}
-        onSessionExpired={clearRankingSession} onClose={() => setProfileUsername(null)} />}
+      <AccountFlow screen={screen} settingsOpen={settingsOpen} authRequest={authRequest} profileSlug={profileSlug}
+        onCloseAuth={closeAuth} onCloseProfile={closeProfile} onScoreNotice={setScoreNotice} />
     </main>
   );
 }

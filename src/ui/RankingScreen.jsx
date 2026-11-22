@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { getSnapshot, subscribe } from "../identity/auth.js";
 import { findChartId, getGlobalLeaderboard, getLeaderboard, isLeaderboardEnabled, loadRankedChart, TWO_HANDS_NOTICE } from "../leaderboard/client.js";
 import { platformLabel } from "../leaderboard/validation.js";
 import { importSong } from "../music/importSong.js";
@@ -6,7 +7,17 @@ import { loadCatalogFile, SONG_CATALOG } from "../songs/catalog.js";
 import { DIFFICULTIES } from "./SetupScreen.jsx";
 import { SegmentedTabs } from "./SegmentedTabs.jsx";
 
-function RankingTable({ rows, session, onProfile, global = false }) {
+function ProfileLink({ slug, onProfile, children }) {
+  return (
+    <a className="ranked-link" href={`?perfil=${encodeURIComponent(slug)}`} onClick={(event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      onProfile(slug);
+    }}>{children}</a>
+  );
+}
+
+function RankingTable({ rows, ownProfile, onProfile, global = false }) {
   if (rows === null) return <p role="status">Carregando classificação…</p>;
   if (rows.length === 0) return <p>{global ? "Nenhum jogador nesta classificação." : "Nenhuma pontuação enviada para esta fase."}</p>;
 
@@ -26,12 +37,12 @@ function RankingTable({ rows, session, onProfile, global = false }) {
         </thead>
         <tbody>
           {rows.map((row) => {
-            const own = row.username.toLowerCase() === session?.username.toLowerCase();
+            const own = row.username_slug === ownProfile?.username_slug;
             return (
-              <tr key={row.username} className={own ? "ranked-own-row" : undefined}>
+              <tr key={row.username_slug} className={own ? "ranked-own-row" : undefined}>
                 <td>{row.position}º</td>
                 <th scope="row">
-                  <button className="ranked-link" type="button" onClick={() => onProfile(row.username)}>{row.username}</button>
+                  <ProfileLink slug={row.username_slug} onProfile={onProfile}>{row.display_name}</ProfileLink>
                   {own && " (você)"}
                 </th>
                 <td>{Number(global ? row.total_score : row.score).toLocaleString("pt-BR")}</td>
@@ -51,7 +62,7 @@ function RankingTable({ rows, session, onProfile, global = false }) {
   );
 }
 
-function GlobalRankingPanel({ difficulty, session, onProfile }) {
+function GlobalRankingPanel({ difficulty, ownProfile, onProfile }) {
   const enabled = isLeaderboardEnabled();
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
@@ -77,10 +88,10 @@ function GlobalRankingPanel({ difficulty, session, onProfile }) {
       }}>Tentar de novo</button>
     </div>
   );
-  return <RankingTable rows={rows} session={session} onProfile={onProfile} global />;
+  return <RankingTable rows={rows} ownProfile={ownProfile} onProfile={onProfile} global />;
 }
 
-function RankedChartPanel({ slug, difficulty, session, onProfile, onPlay, canFullscreen, audioLoading, audioError }) {
+function RankedChartPanel({ slug, difficulty, ownProfile, onProfile, onPlay, canFullscreen, audioLoading, audioError }) {
   const enabled = isLeaderboardEnabled();
   const [chart, setChart] = useState(null);
   const [rows, setRows] = useState(null);
@@ -129,12 +140,13 @@ function RankedChartPanel({ slug, difficulty, session, onProfile, onPlay, canFul
         </div>
       )}
       {!enabled && <p>Ranking online indisponível.</p>}
-      {enabled && !error && <RankingTable rows={rows} session={session} onProfile={onProfile} />}
+      {enabled && !error && <RankingTable rows={rows} ownProfile={ownProfile} onProfile={onProfile} />}
     </>
   );
 }
 
-export function RankingScreen({ initialChart, initialDifficulty, handMode, session, onProfile, onPlay, onBack, onSettings, canFullscreen, status }) {
+export function RankingScreen({ initialChart, initialDifficulty, handMode, onProfile, onPlay, onBack, onSettings, canFullscreen, status }) {
+  const { profile: ownProfile } = useSyncExternalStore(subscribe, getSnapshot);
   const [global, setGlobal] = useState(false);
   const [globalDifficulty, setGlobalDifficulty] = useState("");
   const [slug, setSlug] = useState(initialChart?.slug ?? SONG_CATALOG[0].id);
@@ -169,8 +181,8 @@ export function RankingScreen({ initialChart, initialDifficulty, handMode, sessi
       <h1>Ranking</h1>
       <SegmentedTabs label="Tipo de classificação" labels={["Por música", "Geral"]} selected={Number(global)}
         onSelect={(index) => setGlobal(index === 1)} panelClassName="ranking-tab-panel"
-        extra={session && <button className="menu-button account-chip" type="button"
-          onClick={() => onProfile(session.username)}>{session.username}</button>}>
+        extra={ownProfile && <button className="menu-button account-chip" type="button"
+          onClick={() => onProfile(ownProfile.username_slug)}>{ownProfile.display_name}</button>}>
         {global ? <>
           <div className="ranked-filters">
             <label>Dificuldade<select value={globalDifficulty} onChange={(event) => setGlobalDifficulty(event.target.value)}>
@@ -178,7 +190,7 @@ export function RankingScreen({ initialChart, initialDifficulty, handMode, sessi
               {DIFFICULTIES.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
             </select></label>
           </div>
-          <GlobalRankingPanel key={globalDifficulty} difficulty={globalDifficulty} session={session} onProfile={onProfile} />
+          <GlobalRankingPanel key={globalDifficulty} difficulty={globalDifficulty} ownProfile={ownProfile} onProfile={onProfile} />
         </> : <>
           <div className="ranked-filters">
             <label>Música<select value={slug} onChange={(event) => {
@@ -193,7 +205,7 @@ export function RankingScreen({ initialChart, initialDifficulty, handMode, sessi
           </div>
           {handMode !== "both" && <p role="status">{TWO_HANDS_NOTICE}</p>}
           {status && <p role="alert">{status}</p>}
-          <RankedChartPanel key={`${slug}/${difficulty}`} slug={slug} difficulty={difficulty} session={session}
+          <RankedChartPanel key={`${slug}/${difficulty}`} slug={slug} difficulty={difficulty} ownProfile={ownProfile}
             onProfile={onProfile} canFullscreen={canFullscreen} audioLoading={!selectedAudio} audioError={selectedAudio?.error}
             onPlay={(chart, options) => onPlay(chart, selectedAudio.song, options)} />
           {selectedAudio?.error && <button className="menu-button" type="button" onClick={() => {

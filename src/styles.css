@@ -806,7 +806,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   gap: 10px;
 }
 .ranked-filters label, .ranked-form label { display: grid; gap: 4px; min-width: 0; color: var(--muted); }
-.ranked-filters select, .ranked-form input {
+.ranked-filters select, .ranked-form :is(input, select, textarea) {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -815,11 +815,20 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   border-radius: 10px;
   color: var(--text);
   background: var(--bg-2);
+  font: inherit;
 }
 .ranked-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ranking-views { justify-content: space-between; }
 .ranking-tab-panel:not([hidden]) { display: grid; gap: 14px; min-width: 0; }
-.account-chip { min-height: 36px; border-radius: 999px; }
+.account-chip {
+  min-height: 36px;
+  max-width: 65%;
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.score-notice { color: var(--cyan); font-size: 0.9rem; margin: 0; }
 .ranked-link {
   padding: 0;
   color: var(--cyan);
@@ -827,6 +836,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
   font: inherit;
   text-decoration: underline;
   text-underline-offset: 3px;
+  overflow-wrap: anywhere;
 }
 .ranked-result {
   display: grid;
@@ -891,6 +901,50 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 .password-toggle:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: -4px; border-radius: 10px; }
 .auth-panel .ranked-form { grid-template-columns: minmax(0, 1fr); }
 .profile-panel { width: min(760px, 100%); }
+.profile-panel h2, .profile-identity p, .profile-bio { overflow-wrap: anywhere; min-width: 0; }
+.profile-identity { display: flex; align-items: center; gap: 12px; }
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--avatar-color);
+  font-size: 1.55rem;
+}
+.profile-bio { white-space: pre-wrap; }
+.profile-editor :is(.profile-bio, .avatar-colors) { grid-column: 1 / -1; }
+.profile-editor textarea { resize: vertical; }
+.avatar-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+}
+.avatar-colors button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.avatar-colors button::after {
+  content: "";
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--avatar-color);
+}
+.avatar-colors button[aria-pressed="true"]::after { outline: 2px solid currentColor; outline-offset: 3px; }
+.profile-extra { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); }
 .profile-since { color: var(--muted); }
 .profile-stats {
   display: grid;

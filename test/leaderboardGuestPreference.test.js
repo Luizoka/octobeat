@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { loadGuestPreference, loadSession, saveGuestPreference, saveSession } from "../src/leaderboard/session.js";
+import { loadGuestPreference, saveGuestPreference } from "../src/leaderboard/guestPreference.js";
 
-test("lembra a escolha de convidado depois de entrar e sair da conta", (context) => {
+test("lembra a escolha de convidado", (context) => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   const values = new Map();
   Object.defineProperty(globalThis, "localStorage", {
@@ -20,11 +20,6 @@ test("lembra a escolha de convidado depois de entrar e sair da conta", (context)
 
   assert.equal(loadGuestPreference(), false);
   saveGuestPreference();
-  const session = { username: "Jogador", token: "a".repeat(64) };
-  saveSession(session);
-  assert.deepEqual(loadSession(), session);
-  saveSession(null);
-  assert.equal(loadSession(), null);
   assert.equal(loadGuestPreference(), true);
 });
 

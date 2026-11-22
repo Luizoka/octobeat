@@ -48,7 +48,7 @@ Um score só é competitivo quando a combinação abaixo é oficial e ativa:
 pontuação + modo de entrada (hoje: duas mãos). Mudar qualquer uma cria um
 ranking novo; o antigo fica arquivado, nunca reescrito.
 
-## Identidade (issue #6, em andamento)
+## Identidade (issue #6)
 
 - Provedor: **Neon Auth** (Better Auth gerenciado). SDK no front:
   `@neon/neon-js`. Usuários em `neon_auth.user` (id `uuid`).
@@ -66,6 +66,30 @@ ranking novo; o antigo fica arquivado, nunca reescrito.
 - Admin/moderação: decidido no banco (`neon_auth.user.role` ou tabela de
   papéis com escrita restrita). Nunca uma flag que o próprio usuário edita.
 
+### Contrato atual (migração 004)
+
+- `public.profiles`: `user_id` (PK → `neon_auth.user`, cascata ao apagar a
+  conta), `username` (fixo; login das contas usuário+senha), `username_slug`
+  (único; links `?perfil=<slug>`, que funcionam em hospedagem estática), `display_name` (alterável), `bio` (≤ 280),
+  `avatar_config`, `visibility` (`public`/`private`), `moderation_status`
+  (`active`/`hidden`/`suspended`).
+- `avatar_config` v1: `{ "v": 1, "base": "octo", "color": "<cor>", "layers": {} }`.
+  Cores em `internal.avatar_colors()`. Ordem das camadas para a #14:
+  body → eyes → mouth → hat → held. Só o servidor escreve.
+- `public.scores` por `user_id` (FK → `profiles`). Perfil `hidden` some de
+  rankings e do perfil público; `suspended` ou banido no Neon Auth não envia.
+- Perfil público (`get_player_profile(slug)`) já devolve `level: null`,
+  `achievements: []`, `published_charts: []` — contrato para #13/#7, sem
+  tabelas ainda. Perfil privado: só nome e avatar para quem não é o dono.
+- Conta usuário+senha: o `@usuário` do perfil precisa ser o mesmo do login
+  (checado em `create_my_profile`). Conta Google escolhe um `@usuário` livre no
+  primeiro acesso (estado `needsProfile` no front).
+
+| RPC | Visitante | Logado |
+|---|:-:|:-:|
+| `username_available`, `get_leaderboard`, `get_global_leaderboard`, `get_player_profile` | ✔ | ✔ |
+| `get_my_profile`, `create_my_profile`, `update_my_profile`, `submit_score` | | ✔ |
+
 ## Banco
 
 ### Migrações
@@ -73,6 +97,13 @@ ranking novo; o antigo fica arquivado, nunca reescrito.
 - `npm run db:migrate` aplica as pendentes, cada uma na sua transação, e
   registra em `ops.schema_migrations` (schema fora da API). `-- --status`
   só mostra.
+- **`npm run db:migrate -- --dry-run`** aplica as pendentes e roda todas as
+  suítes de políticas numa transação que sempre é desfeita. Use antes de
+  aplicar de verdade — o banco de produção é o mesmo.
+- Schemas: `public` (tabelas com RLS + RPCs da lista `PUBLIC_RPC`),
+  `internal` (funções auxiliares; a API não enxerga), `ops` (controle de
+  migrações). Funções novas nascem sem `EXECUTE` para `PUBLIC`
+  (`ALTER DEFAULT PRIVILEGES`): RPC pública precisa de `GRANT` explícito.
 - Nome: `db/migrations/NNN_descricao.sql` (minúsculas). **Migração aplicada é
   imutável** — o executor recusa se o arquivo mudou. Para corrigir, crie outra.
 - Mudou o tipo de retorno de uma função → `DROP FUNCTION` antes do
@@ -130,8 +161,10 @@ exposto fazem o teste falhar. Toda RPC nova entra em `PUBLIC_RPC` de propósito.
 2. Suíte `scripts/db/policies/<domínio>.policy.js` com casos negativos
    (o que **não** pode) e atualização de `PUBLIC_RPC`.
 3. Cliente em `src/<domínio>/`, funções puras com teste em `test/`.
-4. `npm test`, `npm run build`, `npm run db:migrate`, Refresh schema cache,
-   `npm run db:test-policies`.
+4. `npm test`, `npm run build`, `npm run db:migrate -- --dry-run`, e só então
+   `npm run db:migrate` + Refresh schema cache + `npm run db:test-policies`.
+   Se a migração quebra RPCs que o site publicado usa, aplique junto com o
+   deploy do front (o banco é compartilhado com produção).
 5. Atualizar este documento se mudar um contrato.
 
 ## Decisões em aberto
