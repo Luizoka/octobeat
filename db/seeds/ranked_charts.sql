@@ -10,6 +10,9 @@ VALUES
   ('chaos-king', 'easy', 'd265bd456023', 'Chaos King', 375, 4658955),
   ('chaos-king', 'normal', 'b64370c4ca0b', 'Chaos King', 596, 10798447),
   ('chaos-king', 'hard', '3f9111edc458', 'Chaos King', 968, 26276936),
+  ('tv-world', 'easy', 'd408dbc07ffd', 'TV World', 211, 1669634),
+  ('tv-world', 'normal', '0a18d66f9ace', 'TV World', 463, 6788325),
+  ('tv-world', 'hard', '9bb3ec5eafb0', 'TV World', 777, 17397384),
   ('death-by-glamour', 'easy', 'e8975d1067cc', 'Death by Glamour', 254, 2327868),
   ('death-by-glamour', 'normal', '671dd62d3183', 'Death by Glamour', 479, 7218188),
   ('death-by-glamour', 'hard', 'f34f5deab9bc', 'Death by Glamour', 905, 23103576)

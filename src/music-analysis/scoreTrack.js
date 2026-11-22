@@ -20,6 +20,10 @@ export function scoreTrack(analysis, presetName = DEFAULT_SALIENCE_PRESET) {
 
   const normalizedPitch = Math.max(0, Math.min(1, ((analysis.averagePitch ?? 60) - 36) / 48));
   score += addReason(reasons, "pitch", normalizedPitch * config.pitchWeight);
+  const median = analysis.medianPitch ?? analysis.averagePitch ?? 60;
+  if (median < config.bassRegisterPitch) {
+    score += addReason(reasons, "bass-register", -((config.bassRegisterPitch - median) / 12) * config.bassRegisterPenalty);
+  }
   score += addReason(reasons, "velocity", (analysis.averageVelocity ?? 0.65) * config.velocityWeight);
 
   const durationQuality = Math.max(0, 1 - Math.abs(Math.log2(Math.max(analysis.averageNoteDuration ?? 0.25, 0.02) / 0.3)) / 5);

@@ -55,3 +55,13 @@ test("nomes explícitos de bass vencem fallback de piano ou guitar", () => {
   assert.equal(classifyMidiTrack({ program: 0, name: "808 Bass", instrument: "acoustic grand piano" }), "bass");
   assert.equal(classifyMidiTrack({ program: 32, name: "Bass Guitar", instrument: "acoustic bass" }), "bass");
 });
+
+test("linha de baixo em instrumento melódico perde para a melodia aguda", () => {
+  // Violão dobrando o baixo (como na TV World): monofônico e ativo, mas grave.
+  const bassGuitar = track("bass-guitar", "guitar", notes(80, { pitch: 34 }));
+  const lead = track("lead", "piano", notes(80, { pitch: 64 }));
+  const report = analyzeSong({ duration: 20, tracks: [bassGuitar, lead] });
+  const guitar = report.tracks.find((item) => item.id === "bass-guitar");
+  assert.ok(guitar.scoreReasons.some((reason) => reason.startsWith("bass-register:-")));
+  assert.equal(report.selectedTrackId, "lead");
+});

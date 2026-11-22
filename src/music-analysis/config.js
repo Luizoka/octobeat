@@ -30,6 +30,12 @@ export const SALIENCE_PRESETS = Object.freeze({
     densePenalty: 4,
     veryDensePenalty: 14,
     suspiciousPenalty: 100,
+    // Track cuja mediana fica abaixo de `bassRegisterPitch` (Dó3) perde
+    // `bassRegisterPenalty` por oitava abaixo. Evita escolher como melodia uma
+    // linha de baixo tocada por instrumento "melódico" (ex.: violão dobrando o
+    // baixo na TV World).
+    bassRegisterPitch: 48,
+    bassRegisterPenalty: 20,
   }),
 });
 

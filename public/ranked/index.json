@@ -72,6 +72,30 @@
     "title": "Chaos King"
   },
   {
+    "slug": "tv-world",
+    "difficulty": "easy",
+    "chartVersion": "d408dbc07ffd",
+    "noteCount": 211,
+    "maxScore": 1669634,
+    "title": "TV World"
+  },
+  {
+    "slug": "tv-world",
+    "difficulty": "normal",
+    "chartVersion": "0a18d66f9ace",
+    "noteCount": 463,
+    "maxScore": 6788325,
+    "title": "TV World"
+  },
+  {
+    "slug": "tv-world",
+    "difficulty": "hard",
+    "chartVersion": "9bb3ec5eafb0",
+    "noteCount": 777,
+    "maxScore": 17397384,
+    "title": "TV World"
+  },
+  {
     "slug": "death-by-glamour",
     "difficulty": "easy",
     "chartVersion": "e8975d1067cc",

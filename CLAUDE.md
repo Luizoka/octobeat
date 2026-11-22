@@ -32,7 +32,7 @@ Responda e escreva comentários em português.
 ## Ferramentas
 
 - `npm test` — testes (node --test). Rodar sempre após mudanças.
-- Músicas do jogo: `songs/` (nome `<jogo>-<musica>.mid`, minúsculas e hífen), listadas em `src/songs/catalog.js` (título/artista exibidos vêm de lá). Hoje: Flower Man, Cutie Mew Mew Magic, Chaos King, Death by Glamour. A antiga (vs Susie) está em `test-songs/`. A fase demo está escondida da tela inicial (código ainda existe em `App.jsx`).
+- Músicas do jogo: `songs/` (nome `<jogo>-<musica>.mid`, minúsculas e hífen), listadas em `src/songs/catalog.js` (título/artista exibidos vêm de lá). Hoje: Flower Man, Cutie Mew Mew Magic, Chaos King, TV World, Death by Glamour. A antiga (vs Susie) está em `test-songs/`. A fase demo está escondida da tela inicial (código ainda existe em `App.jsx`).
 - `npm run eval:charts` — roda o pipeline sobre `test-songs/` + `songs/` e compara com `test-songs/baseline.json` (▲ melhor / ▼ pior).
 - `npm run eval:charts -- --save` — regrava o baseline. O baseline atual é o estado **anterior ao Passo 1**; só regravar quando o usuário pedir.
 - `npm run eval:songs` — regenera os MIDIs sintéticos (determinístico).

@@ -6,6 +6,7 @@ const flowerManUrl = new URL("../../songs/deltarune-flower-man.mid", import.meta
 const deathByGlamourUrl = new URL("../../songs/undertale-death-by-glamour.mid", import.meta.url).href;
 const chaosKingUrl = new URL("../../songs/deltarune-chaos-king.mid", import.meta.url).href;
 const cutieMewMewUrl = new URL("../../songs/deltarune-cutie-mew-mew-magic.mid", import.meta.url).href;
+const tvWorldUrl = new URL("../../songs/deltarune-tv-world.mid", import.meta.url).href;
 
 export const SONG_CATALOG = Object.freeze([
   { id: "flower-man", file: "deltarune-flower-man.mid", url: flowerManUrl,
@@ -14,6 +15,8 @@ export const SONG_CATALOG = Object.freeze([
     title: "Cutie Mew Mew Magic", artist: "Deltarune — Chapter 5", vibe: "Rápida e animada, com notas longas" },
   { id: "chaos-king", file: "deltarune-chaos-king.mid", url: chaosKingUrl,
     title: "Chaos King", artist: "Deltarune — MIDI por ShinkoNetCavy", vibe: "Batalha agitada, cheia de trinados" },
+  { id: "tv-world", file: "deltarune-tv-world.mid", url: tvWorldUrl,
+    title: "TV World", artist: "Deltarune — Chapter 3", vibe: "Groove dançante, com sax e vibrafone" },
   { id: "death-by-glamour", file: "undertale-death-by-glamour.mid", url: deathByGlamourUrl,
     title: "Death by Glamour", artist: "Undertale", vibe: "A mais intensa: muitas notas e acordes" },
 ]);
