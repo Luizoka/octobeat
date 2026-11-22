@@ -6,7 +6,10 @@ import { SONG_CATALOG } from "../songs/catalog.js";
 export function HomeScreen({ loading, status, currentSong, onPlaySong, onImportFile, onContinue, onRanking, onSettings, scoreNotice, onAccount }) {
   const identity = useSyncExternalStore(subscribe, getSnapshot);
   const checkingAccount = identity.status === "loading";
-  const accountLabel = identity.profile?.display_name ?? (identity.status === "needsProfile" ? "Criar perfil" : "Entrar");
+  // "error" = não deu para verificar a sessão (ex.: volta do Google falhou):
+  // não fingir que é visitante; o diálogo mostra o erro e "Verificar sessão novamente".
+  const accountLabel = identity.profile?.display_name
+    ?? (identity.status === "needsProfile" ? "Criar perfil" : identity.status === "error" ? "⚠ Conta" : "Entrar");
   return (
     <section className="screen home-screen" aria-label="Início">
       <header className="screen-header">
